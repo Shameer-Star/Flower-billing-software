@@ -3,1138 +3,752 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fresh Blooms | Flower Shop Billing & Customer Management System</title>
-  <meta name="description" content="Professional flower shop billing, inventory tracking, weight-based flower sales, and customer management system.">
+  <title>Fresh Blooms | Admin Portal & Farmer Collection System</title>
+  <meta name="description" content="Professional Admin Dashboard and Secure Farmer Collection Management System.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS for 15-Day Farmer Locations Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
   <link rel="stylesheet" href="style.css">
-  <!-- Chart.js & Canvas Confetti -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
   <!-- TOAST CONTAINER -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- 1. LOGIN SCREEN -->
+  <!-- ==================== 1. ADMIN LOGIN SCREEN ==================== -->
   <div id="login-screen" class="login-screen">
-    <div class="login-wrapper">
-      <div class="login-left-banner">
-        <div class="login-brand-hero">
-          <div class="logo-mark">
-            <svg class="flower-lotus-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M32 8C32 8 26 22 26 34C26 40 28.5 46 32 48C35.5 46 38 40 38 34C38 22 32 8 32 8Z" fill="#E05375"/>
-              <path d="M32 20C24 24 16 32 18 42C19 47 24 49 28 47C31 43 32 38 32 20Z" fill="#F07C9A" opacity="0.9"/>
-              <path d="M32 20C40 24 48 32 46 42C45 47 40 49 36 47C33 43 32 38 32 20Z" fill="#F07C9A" opacity="0.9"/>
-              <path d="M32 32C20 34 8 40 10 50C11 54 18 56 24 51C28 47 30 42 32 32Z" fill="#F8A5BA" opacity="0.85"/>
-              <path d="M32 32C44 34 56 40 54 50C53 54 46 56 40 51C36 47 34 42 32 32Z" fill="#F8A5BA" opacity="0.85"/>
-              <path d="M22 52C26 55 30 56 32 56C34 56 38 55 42 52C40 58 32 60 32 60C32 60 24 58 22 52Z" fill="#15803D"/>
-              <path d="M12 52C18 55 26 54 32 52C32 52 22 62 12 52Z" fill="#16A34A" opacity="0.8"/>
-              <path d="M52 52C46 55 38 54 32 52C32 52 42 62 52 52Z" fill="#16A34A" opacity="0.8"/>
-            </svg>
-          </div>
-          <h1>Fresh Blooms</h1>
-          <p class="tagline">FLOWERS • BILLS • GROWTH</p>
-          <div class="banner-slogan">
-            <h3>Manage Your Flowers.<br>Track Your Customers.<br>Grow Your Business.</h3>
-            <p>The specialized high-speed billing, inventory and customer ledger built specifically for flower markets and floral businesses.</p>
-          </div>
-          <div class="banner-features">
-            <div class="feature-item">
-              <span class="feat-icon">⚖️</span>
-              <span>Weight-based pricing in kg & grams</span>
-            </div>
-            <div class="feature-item">
-              <span class="feat-icon">⚡</span>
-              <span>Sub-5-second invoice generation</span>
-            </div>
-            <div class="feature-item">
-              <span class="feat-icon">💳</span>
-              <span>Credit balances & settlement tracking</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div class="login-container">
       <div class="login-card">
-        <div class="login-card-header">
-          <div class="mini-logo">
-            <svg viewBox="0 0 64 64" width="36" height="36" fill="none">
-              <path d="M32 8C32 8 26 22 26 34C26 40 28.5 46 32 48C35.5 46 38 40 38 34C38 22 32 8 32 8Z" fill="#E05375"/>
-              <path d="M32 20C24 24 16 32 18 42C19 47 24 49 28 47C31 43 32 38 32 20Z" fill="#F07C9A"/>
-              <path d="M32 20C40 24 48 32 46 42C45 47 40 49 36 47C33 43 32 38 32 20Z" fill="#F07C9A"/>
-              <path d="M22 52C26 55 30 56 32 56C34 56 38 55 42 52C40 58 32 60 32 60C32 60 24 58 22 52Z" fill="#15803D"/>
-            </svg>
-            <div>
-              <span class="brand-title">Fresh Blooms</span>
-              <span class="brand-sub">FLOWERS • BILLS • GROWTH</span>
+        <div class="brand-header">
+          <div class="brand-top-row">
+            <div class="brand-logo-icon">
+              <svg viewBox="0 0 64 64" width="38" height="38" fill="none">
+                <path d="M32 8C32 8 26 22 26 34C26 40 28.5 46 32 48C35.5 46 38 40 38 34C38 22 32 8 32 8Z" fill="#15803D"/>
+                <path d="M32 20C24 24 16 32 18 42C19 47 24 49 28 47C31 43 32 38 32 20Z" fill="#22C55E"/>
+                <path d="M32 20C40 24 48 32 46 42C45 47 40 49 36 47C33 43 32 38 32 20Z" fill="#22C55E"/>
+                <path d="M22 52C26 55 30 56 32 56C34 56 38 55 42 52C40 58 32 60 32 60C32 60 24 58 22 52Z" fill="#166534"/>
+              </svg>
+            </div>
+            <div class="lang-switch-pills">
+              <button type="button" class="lang-pill" id="login-lang-en" onclick="setLanguage('en')">EN</button>
+              <button type="button" class="lang-pill" id="login-lang-ta" onclick="setLanguage('ta')">தமிழ்</button>
             </div>
           </div>
-          <h2>Welcome Back!</h2>
-          <p class="subtitle">Login to your flower billing portal</p>
+          <h2>Fresh Blooms</h2>
+          <p class="brand-tag" data-i18n="brand_tag">Administrator Portal & Farmer Operations</p>
         </div>
 
-        <!-- Normal Password Form -->
-        <form id="login-form" class="login-form">
+        <div class="login-box-header">
+          <h3 data-i18n="admin_sign_in">Admin Sign In</h3>
+          <p data-i18n="sign_in_sub">Access the central farmer collection and management console</p>
+        </div>
+
+        <form id="admin-login-form" class="admin-login-form" autocomplete="off">
           <div class="form-group">
-            <label for="login-username">Username or Mobile Number</label>
+            <label for="login-username" data-i18n="username_label">Username or Email</label>
             <div class="input-with-icon">
               <span class="input-icon">👤</span>
-              <input type="text" id="login-username" placeholder="Enter username or mobile" value="admin" required autofocus>
+              <input type="text" id="login-username" placeholder="Enter admin username" value="admin" required autofocus>
             </div>
           </div>
 
           <div class="form-group">
-            <label for="login-password">Password</label>
+            <label for="login-password" data-i18n="password_label">Password</label>
             <div class="input-with-icon">
               <span class="input-icon">🔒</span>
-              <input type="password" id="login-password" placeholder="Enter your password" value="admin123" required>
+              <input type="password" id="login-password" placeholder="Enter password" value="Admin@12345" required>
               <button type="button" class="btn-toggle-pw" id="btn-toggle-pw" title="Show/Hide Password">👁️</button>
             </div>
           </div>
 
-          <div class="form-row-between">
-            <label class="checkbox-label">
-              <input type="checkbox" id="remember-me" checked>
-              <span>Remember me</span>
-            </label>
-            <a href="javascript:void(0)" id="btn-forgot-pw" class="forgot-link">Forgot password?</a>
+          <div class="login-meta-info">
+            <span class="security-badge" data-i18n="security_badge">🛡️ Protected by brute-force rate limiting</span>
           </div>
 
-          <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-submit-login">
-            <span>Login to Dashboard</span>
-            <span class="arrow">→</span>
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-login-submit">
+            <span data-i18n="btn_sign_in">Sign In to Admin Console</span>
+            <span class="btn-arrow">→</span>
           </button>
         </form>
 
-        <div class="login-divider">
-          <span>OR</span>
-        </div>
-
-        <button type="button" class="btn btn-outline btn-block" id="btn-open-pin-login">
-          <span class="key-icon">🔢</span>
-          <span>Login with Quick Staff PIN</span>
-        </button>
-
-        <!-- Fast Demo Account Selector -->
-        <div class="demo-accounts-panel">
-          <div class="demo-title">Fast Demo Logins (Click to switch):</div>
-          <div class="demo-pills">
-            <button type="button" class="demo-pill active" onclick="quickFillLogin('admin', 'admin123')">
-              <strong>Admin / Owner</strong>
-            </button>
-            <button type="button" class="demo-pill" onclick="quickFillLogin('manager', 'admin123')">
-              <strong>Manager</strong>
-            </button>
-            <button type="button" class="demo-pill" onclick="quickFillLogin('cashier', 'admin123')">
-              <strong>Cashier / Staff</strong>
-            </button>
-            <button type="button" class="demo-pill" onclick="quickFillLogin('stockmgr', 'admin123')">
-              <strong>Stock Manager</strong>
-            </button>
-          </div>
+        <div class="login-footer-notice">
+          <p>Authorized administrator access only. All authentication attempts and system changes are monitored and logged in the immutable audit trail.</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- PIN LOGIN MODAL -->
-  <div id="pin-login-modal" class="modal-overlay hidden">
-    <div class="modal-card modal-pin">
-      <button class="modal-close" onclick="closePinModal()">×</button>
-      <div class="pin-header">
-        <div class="pin-icon-wrap">🔒</div>
-        <h3>Staff PIN Login</h3>
-        <p>Enter your 4-digit authorized billing PIN</p>
-      </div>
-      <div class="pin-display">
-        <span class="pin-dot" id="dot-0"></span>
-        <span class="pin-dot" id="dot-1"></span>
-        <span class="pin-dot" id="dot-2"></span>
-        <span class="pin-dot" id="dot-3"></span>
-      </div>
-      <div class="keypad-grid">
-        <button class="key-btn" onclick="pressPin('1')">1</button>
-        <button class="key-btn" onclick="pressPin('2')">2</button>
-        <button class="key-btn" onclick="pressPin('3')">3</button>
-        <button class="key-btn" onclick="pressPin('4')">4</button>
-        <button class="key-btn" onclick="pressPin('5')">5</button>
-        <button class="key-btn" onclick="pressPin('6')">6</button>
-        <button class="key-btn" onclick="pressPin('7')">7</button>
-        <button class="key-btn" onclick="pressPin('8')">8</button>
-        <button class="key-btn" onclick="pressPin('9')">9</button>
-        <button class="key-btn key-action" onclick="clearPin()">C</button>
-        <button class="key-btn" onclick="pressPin('0')">0</button>
-        <button class="key-btn key-action" onclick="backspacePin()">⌫</button>
-      </div>
-      <div class="pin-hint">
-        Demo PINs: <code>1234</code> (Admin), <code>2345</code> (Manager), <code>3456</code> (Cashier), <code>4567</code> (Stock)
-      </div>
-    </div>
-  </div>
-
-  <!-- 2. MAIN APPLICATION WORKSPACE -->
+  <!-- ==================== 2. MAIN ADMIN WORKSPACE ==================== -->
   <div id="app-workspace" class="app-workspace hidden">
-    <!-- SIDEBAR NAVIGATION -->
-    <aside class="sidebar">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="app-sidebar">
       <div class="sidebar-brand">
         <div class="logo-box">
           <svg viewBox="0 0 64 64" width="28" height="28" fill="none">
-            <path d="M32 8C32 8 26 22 26 34C26 40 28.5 46 32 48C35.5 46 38 40 38 34C38 22 32 8 32 8Z" fill="#E05375"/>
-            <path d="M32 20C24 24 16 32 18 42C19 47 24 49 28 47C31 43 32 38 32 20Z" fill="#F07C9A"/>
-            <path d="M32 20C40 24 48 32 46 42C45 47 40 49 36 47C33 43 32 38 32 20Z" fill="#F07C9A"/>
-            <path d="M22 52C26 55 30 56 32 56C34 56 38 55 42 52C40 58 32 60 32 60C32 60 24 58 22 52Z" fill="#15803D"/>
+            <path d="M32 8C32 8 26 22 26 34C26 40 28.5 46 32 48C35.5 46 38 40 38 34C38 22 32 8 32 8Z" fill="#15803D"/>
+            <path d="M32 20C24 24 16 32 18 42C19 47 24 49 28 47C31 43 32 38 32 20Z" fill="#22C55E"/>
+            <path d="M32 20C40 24 48 32 46 42C45 47 40 49 36 47C33 43 32 38 32 20Z" fill="#22C55E"/>
+            <path d="M22 52C26 55 30 56 32 56C34 56 38 55 42 52C40 58 32 60 32 60C32 60 24 58 22 52Z" fill="#166534"/>
           </svg>
         </div>
         <div class="brand-text">
           <span class="name">Fresh Blooms</span>
-          <span class="sub">BILLING & INVENTORY</span>
+          <span class="sub">ADMIN OPERATIONS</span>
         </div>
       </div>
 
       <nav class="sidebar-nav">
         <button class="nav-item active" data-view="dashboard" onclick="navigateTo('dashboard')">
           <span class="nav-icon">📊</span>
-          <span class="nav-label">Dashboard</span>
+          <span class="nav-label" data-i18n="nav_dashboard">Dashboard</span>
         </button>
 
-        <button class="nav-item" data-view="new-bill" id="nav-new-bill" onclick="navigateTo('new-bill')">
-          <span class="nav-icon">🧾</span>
-          <span class="nav-label">New Bill</span>
-          <span class="nav-badge pulse">Fast</span>
+        <button class="nav-item" data-view="farmers" onclick="navigateTo('farmers')">
+          <span class="nav-icon">👨‍🌾</span>
+          <span class="nav-label" data-i18n="nav_farmers">Farmers</span>
+          <span class="nav-badge" id="nav-farmer-count">0</span>
         </button>
 
-        <button class="nav-item" data-view="customers" onclick="navigateTo('customers')">
-          <span class="nav-icon">👥</span>
-          <span class="nav-label">Customers</span>
+        <button class="nav-item" data-view="locations" onclick="navigateTo('locations')">
+          <span class="nav-icon">🗺️</span>
+          <span class="nav-label" data-i18n="nav_locations">15-Day Locations</span>
+          <span class="nav-badge alert-badge hidden" id="nav-location-due-badge">0 Due</span>
         </button>
 
-        <button class="nav-item" data-view="inventory" onclick="navigateTo('inventory')">
+        <button class="nav-item" data-view="collections" onclick="navigateTo('collections')">
           <span class="nav-icon">🌸</span>
-          <span class="nav-label">Flower Inventory</span>
-          <span class="nav-badge alert-count hidden" id="sidebar-stock-alert">0</span>
+          <span class="nav-label" data-i18n="nav_collections">Flower Collections</span>
         </button>
 
-        <button class="nav-item" data-view="payments" onclick="navigateTo('payments')">
-          <span class="nav-icon">💳</span>
-          <span class="nav-label">Payments & Credit</span>
-        </button>
-
-        <button class="nav-item" data-view="reports" id="nav-reports" onclick="navigateTo('reports')">
+        <button class="nav-item" data-view="reports" onclick="navigateTo('reports')">
           <span class="nav-icon">📈</span>
-          <span class="nav-label">Reports & Analytics</span>
+          <span class="nav-label" data-i18n="nav_reports">Reports & Exports</span>
         </button>
 
         <div class="nav-separator"></div>
 
-        <button class="nav-item admin-only" data-view="staff" id="nav-staff" onclick="navigateTo('staff')">
-          <span class="nav-icon">👤</span>
-          <span class="nav-label">Staff & Roles</span>
-        </button>
-
-        <button class="nav-item admin-only" data-view="settings" id="nav-settings" onclick="navigateTo('settings')">
-          <span class="nav-icon">⚙️</span>
-          <span class="nav-label">Settings</span>
-        </button>
-
-        <button class="nav-item admin-only" data-view="audit" id="nav-audit" onclick="navigateTo('audit')">
+        <button class="nav-item" data-view="audit" onclick="navigateTo('audit')">
           <span class="nav-icon">🛡️</span>
-          <span class="nav-label">Audit Logs</span>
+          <span class="nav-label" data-i18n="nav_audit">Audit Trail</span>
+        </button>
+
+        <button class="nav-item" data-view="profile" onclick="navigateTo('profile')">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label" data-i18n="nav_profile">Admin Profile & Security</span>
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="user-chip-mini">
-          <div class="user-avatar" id="sidebar-user-avatar">A</div>
-          <div class="user-details">
-            <span class="user-name" id="sidebar-user-name">Aravind S.</span>
-            <span class="user-role-badge" id="sidebar-user-role">Admin</span>
+        <div class="admin-user-info" onclick="navigateTo('profile')" title="View Admin Profile">
+          <div class="admin-avatar" id="sidebar-admin-avatar">A</div>
+          <div class="admin-details">
+            <span class="admin-name" id="sidebar-admin-name">Administrator</span>
+            <span class="admin-role-tag" data-i18n="super_admin_tag">Super Admin</span>
           </div>
         </div>
-        <button class="btn-logout" onclick="logout()" title="Logout">
-          <span>🚪</span>
-          <span class="logout-text">Logout</span>
+        <button class="btn-logout-icon" onclick="handleLogout()" title="Sign Out">
+          🚪
         </button>
       </div>
     </aside>
 
-    <!-- MAIN CONTENT AREA -->
+    <!-- MAIN BODY -->
     <main class="main-content">
       <!-- TOP NAVBAR -->
       <header class="top-navbar">
         <div class="navbar-left">
-          <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-          <div class="search-box">
+          <button class="mobile-toggle-btn" onclick="toggleSidebar()">☰</button>
+          <div class="quick-search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" id="global-search" placeholder="Search customers, bills, flowers..." oninput="handleGlobalSearch(this.value)">
+            <input type="text" id="global-search-input" placeholder="Search farmer name, ID, phone, village..." oninput="handleGlobalSearch(this.value)">
           </div>
         </div>
 
         <div class="navbar-right">
-          <div class="current-date" id="nav-current-date">Thu, 16 Oct 2026</div>
-
-          <!-- Quick Fast Role Switcher for instant testing -->
-          <div class="role-switcher-dropdown">
-            <span class="switch-label">Role:</span>
-            <select id="active-role-selector" onchange="switchRole(this.value)">
-              <option value="admin">Admin / Owner (Full Access)</option>
-              <option value="manager">Manager</option>
-              <option value="cashier">Billing Staff / Cashier</option>
-              <option value="stock_manager">Stock Manager</option>
-            </select>
+          <!-- Language Switcher in Top Navbar -->
+          <div class="lang-switch-pills nav-lang">
+            <button type="button" class="lang-pill" id="nav-lang-en" onclick="setLanguage('en')">EN</button>
+            <button type="button" class="lang-pill" id="nav-lang-ta" onclick="setLanguage('ta')">தமிழ்</button>
           </div>
 
-          <button class="btn btn-primary btn-sm btn-nav-bill" onclick="navigateTo('new-bill')">
-            <span>+ New Bill</span>
+          <div class="sync-status-indicator" title="Connected to persistent database">
+            <span class="sync-dot live"></span>
+            <span id="sync-status-text" data-i18n="live_sync">Live Sync</span>
+          </div>
+
+          <div class="location-due-chip hidden" id="top-location-due-chip" onclick="navigateTo('locations')">
+            <span class="due-icon">📍</span>
+            <span id="top-location-due-text">0 Reviews Due</span>
+          </div>
+
+          <button class="btn btn-outline btn-sm" onclick="refreshCurrentView()" title="Refresh Data">
+            <span data-i18n="btn_refresh">🔄 Refresh</span>
+          </button>
+
+          <button class="btn btn-primary btn-sm" onclick="openNewFarmerModal()">
+            <span data-i18n="btn_register_farmer">+ Register Farmer</span>
           </button>
         </div>
       </header>
 
-      <!-- VIEW WRAPPER -->
+      <!-- VIEW CONTAINER -->
       <div class="view-container">
 
         <!-- ==================== VIEW 1: DASHBOARD ==================== -->
         <section id="view-dashboard" class="app-view">
           <div class="view-header">
             <div>
-              <h2>Dashboard</h2>
-              <p class="subtitle" id="dashboard-date-str">Thu, 16 Oct 2026</p>
+              <h2>Operations Dashboard</h2>
+              <p class="subtitle" id="dashboard-subtitle">Real-time agricultural collection metrics and farmer location monitoring</p>
             </div>
             <div class="header-actions">
-              <button class="btn btn-outline btn-sm" onclick="fetchDashboardData()">
-                <span>🔄 Refresh</span>
-              </button>
-              <button class="btn btn-primary btn-sm" onclick="navigateTo('new-bill')">
-                <span>🧾 Create Invoice</span>
+              <button class="btn btn-primary btn-sm" onclick="openNewCollectionModal()">
+                <span>🌸 + Record Harvest Collection</span>
               </button>
             </div>
           </div>
 
-          <!-- 8 SUMMARY KPI CARDS MATCHING SCREENSHOT -->
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">Today's Sales</span>
-                <span class="kpi-icon-wrap bg-green">₹</span>
+          <!-- 4 PRIMARY KPI SUMMARY CARDS (REAL DATA ONLY) -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Total Registered Farmers</span>
+                <span class="stat-icon-wrap bg-green">👨‍🌾</span>
               </div>
-              <div class="kpi-value" id="kpi-sales">₹24,680</div>
-              <div class="kpi-trend positive">
-                <span>↑ 12% from yesterday</span>
-              </div>
+              <div class="stat-number" id="dash-total-farmers">0</div>
+              <div class="stat-sub" id="dash-active-farmers">0 active farmers</div>
             </div>
 
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">Total Bills</span>
-                <span class="kpi-icon-wrap bg-blue">🧾</span>
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Total Flower Collections</span>
+                <span class="stat-icon-wrap bg-blue">🧺</span>
               </div>
-              <div class="kpi-value" id="kpi-bills">18</div>
-              <div class="kpi-trend positive">
-                <span>↑ 8% from yesterday</span>
-              </div>
+              <div class="stat-number" id="dash-total-collections">0</div>
+              <div class="stat-sub" id="dash-total-kg">0 kg total volume</div>
             </div>
 
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">Cash Collected</span>
-                <span class="kpi-icon-wrap bg-emerald">💵</span>
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Total Farmer Payout</span>
+                <span class="stat-icon-wrap bg-emerald">₹</span>
               </div>
-              <div class="kpi-value" id="kpi-cash">₹12,500</div>
-              <div class="kpi-meta">50% of total</div>
+              <div class="stat-number" id="dash-total-payout">₹0</div>
+              <div class="stat-sub text-rose" id="dash-pending-payout">₹0 pending payout</div>
             </div>
 
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">UPI Collection</span>
-                <span class="kpi-icon-wrap bg-purple">📱</span>
+            <div class="stat-card highlight-card">
+              <div class="stat-header">
+                <span class="stat-title">15-Day Location Review</span>
+                <span class="stat-icon-wrap bg-amber">📍</span>
               </div>
-              <div class="kpi-value" id="kpi-upi">₹8,960</div>
-              <div class="kpi-meta">37% of total</div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">Credit Sales</span>
-                <span class="kpi-icon-wrap bg-amber">⏳</span>
-              </div>
-              <div class="kpi-value" id="kpi-credit">₹3,220</div>
-              <div class="kpi-meta">13% of total</div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">Outstanding Balance</span>
-                <span class="kpi-icon-wrap bg-rose">⚠️</span>
-              </div>
-              <div class="kpi-value text-rose" id="kpi-debt">₹5,480</div>
-              <div class="kpi-meta" id="kpi-debt-customers">5 customers</div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">Flowers Sold</span>
-                <span class="kpi-icon-wrap bg-pink">🌸</span>
-              </div>
-              <div class="kpi-value" id="kpi-weight">42.5 kg</div>
-              <div class="kpi-trend positive">
-                <span>↑ 15% from yesterday</span>
-              </div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label">Stock Value</span>
-                <span class="kpi-icon-wrap bg-teal">📦</span>
-              </div>
-              <div class="kpi-value" id="kpi-stock-val">₹1,28,500</div>
-              <div class="kpi-meta">Current inventory</div>
+              <div class="stat-number" id="dash-location-due-count">0</div>
+              <div class="stat-sub" id="dash-location-status-breakdown">0 verified • 0 due or overdue</div>
             </div>
           </div>
 
-          <!-- CHARTS & LEADERBOARDS ROW -->
-          <div class="dashboard-grid-row">
-            <!-- Sales Overview Chart -->
-            <div class="content-card sales-chart-card">
-              <div class="card-header">
-                <div>
-                  <h3>Sales Overview</h3>
-                  <p class="card-sub">Daily revenue trends and bill volume</p>
-                </div>
-                <div class="pill-tabs">
-                  <button class="pill-tab active" onclick="setDashboardChartFilter('daily', this)">Daily</button>
-                  <button class="pill-tab" onclick="setDashboardChartFilter('weekly', this)">Weekly</button>
-                  <button class="pill-tab" onclick="setDashboardChartFilter('monthly', this)">Monthly</button>
-                </div>
-              </div>
-              <div class="chart-wrapper">
-                <canvas id="salesOverviewChart"></canvas>
+          <!-- 15-DAY LOCATION REVIEW ALERT BANNER (IF ANY DUE/OVERDUE) -->
+          <div class="alert-banner hidden" id="dashboard-location-alert-banner">
+            <div class="alert-banner-left">
+              <span class="alert-icon-lg">⚠️</span>
+              <div>
+                <h4 id="alert-banner-title">Farmer Location Reviews Due</h4>
+                <p id="alert-banner-desc">Farmers require verified 15-day GPS location refresh to ensure collection route accuracy.</p>
               </div>
             </div>
-
-            <!-- Top Selling Flowers Card -->
-            <div class="content-card top-flowers-card">
-              <div class="card-header">
-                <div>
-                  <h3>Top Selling Flowers</h3>
-                  <p class="card-sub">Volume by kilograms sold</p>
-                </div>
-              </div>
-              <div class="top-list" id="dashboard-top-flowers">
-                <!-- Dynamically populated -->
-              </div>
-            </div>
-
-            <!-- Best Customers Card -->
-            <div class="content-card best-customers-card">
-              <div class="card-header">
-                <div>
-                  <h3>Best Customers</h3>
-                  <p class="card-sub">Ranked by lifetime purchase value</p>
-                </div>
-              </div>
-              <div class="top-list" id="dashboard-best-customers">
-                <!-- Dynamically populated -->
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ==================== VIEW 2: BILLING / NEW BILL ==================== -->
-        <section id="view-new-bill" class="app-view hidden">
-          <div class="view-header">
-            <div>
-              <h2>New Bill</h2>
-              <p class="subtitle">Fast touch & keyboard flower invoice generation</p>
-            </div>
-            <div class="bill-meta-header">
-              <div class="badge-invoice-no">
-                <span>Invoice No:</span>
-                <strong id="live-invoice-no">FB001568</strong>
-              </div>
-              <div class="badge-datetime" id="live-bill-datetime">
-                16-10-2026 | 11:45 AM
-              </div>
-            </div>
-          </div>
-
-          <form id="billing-form" onsubmit="handleGenerateBill(event)">
-            <!-- CUSTOMER DETAILS PANEL -->
-            <div class="content-card bill-customer-panel">
-              <div class="panel-header-inline">
-                <h4 class="section-title">Customer Details</h4>
-                <button type="button" class="btn btn-outline btn-xs" onclick="openNewCustomerModal()">
-                  + New Customer
-                </button>
-              </div>
-
-              <div class="customer-select-row">
-                <div class="input-autocomplete-wrapper">
-                  <label for="bill-customer-search">Customer Name / Mobile</label>
-                  <div class="input-with-icon">
-                    <span class="input-icon">🔍</span>
-                    <input type="text" id="bill-customer-search" placeholder="Search by name or mobile number..." autocomplete="off" oninput="onCustomerSearchInput(this.value)">
-                  </div>
-                  <div id="customer-dropdown-results" class="autocomplete-dropdown hidden"></div>
-                </div>
-
-                <div class="customer-info-box">
-                  <label>Customer Category</label>
-                  <select id="bill-customer-category" class="select-category" onchange="onCustomerCategoryChange(this.value)">
-                    <option value="Retail">Retail</option>
-                    <option value="Wholesale">Wholesale</option>
-                    <option value="Event Planner">Event Planner</option>
-                    <option value="Regular Buyer">Regular Buyer</option>
-                  </select>
-                </div>
-
-                <div class="customer-credit-indicator" id="customer-credit-alert">
-                  <span class="alert-icon">ℹ️</span>
-                  <div>
-                    <span class="alert-text">Customer Credit: <strong id="bill-cust-outstanding">₹0</strong></span>
-                    <small id="bill-cust-stats">Lifetime: 0 kg purchased</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- ADD FLOWERS TABLE -->
-            <div class="content-card bill-items-panel">
-              <div class="panel-header-inline">
-                <div>
-                  <h4 class="section-title">Add Flowers</h4>
-                  <p class="card-sub">Select flower, enter weight in kg/grams, and rates calculate automatically</p>
-                </div>
-                <button type="button" class="btn btn-primary btn-sm" onclick="addBillingItemRow()">
-                  <span>+ Add Item</span>
-                </button>
-              </div>
-
-              <div class="table-responsive">
-                <table class="table bill-items-table" id="bill-items-table">
-                  <thead>
-                    <tr>
-                      <th style="width: 25%">Flower Type</th>
-                      <th style="width: 20%">Variety</th>
-                      <th style="width: 18%">Weight / Unit</th>
-                      <th style="width: 18%">Rate (₹/kg)</th>
-                      <th style="width: 14%">Amount (₹)</th>
-                      <th style="width: 5%"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="bill-items-tbody">
-                    <!-- Dynamic Rows inserted here -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- SUMMARY & PAYMENT PANEL -->
-            <div class="bill-bottom-grid">
-              <!-- Payment Method & Notes -->
-              <div class="content-card bill-payment-options">
-                <h4 class="section-title">Payment Method</h4>
-                <div class="payment-pills">
-                  <label class="pay-pill active">
-                    <input type="radio" name="payMethod" value="Cash" checked onchange="onPaymentMethodSelect('Cash')">
-                    <span>💵 Cash</span>
-                  </label>
-                  <label class="pay-pill">
-                    <input type="radio" name="payMethod" value="UPI" onchange="onPaymentMethodSelect('UPI')">
-                    <span>📱 UPI (GPay/PhonePe)</span>
-                  </label>
-                  <label class="pay-pill">
-                    <input type="radio" name="payMethod" value="Card" onchange="onPaymentMethodSelect('Card')">
-                    <span>💳 Card</span>
-                  </label>
-                  <label class="pay-pill">
-                    <input type="radio" name="payMethod" value="Bank Transfer" onchange="onPaymentMethodSelect('Bank Transfer')">
-                    <span>🏦 Bank Transfer</span>
-                  </label>
-                  <label class="pay-pill">
-                    <input type="radio" name="payMethod" value="Credit" onchange="onPaymentMethodSelect('Credit')">
-                    <span>⏳ Credit (Pay Later)</span>
-                  </label>
-                </div>
-
-                <div class="form-group notes-group">
-                  <label for="bill-notes">Order Notes / Delivery Instructions</label>
-                  <input type="text" id="bill-notes" placeholder="e.g. Festival morning delivery, special packaging">
-                </div>
-              </div>
-
-              <!-- Calculation Totals Box -->
-              <div class="content-card bill-totals-card">
-                <div class="calc-row">
-                  <span>Subtotal</span>
-                  <span id="bill-subtotal-display">₹0</span>
-                </div>
-
-                <div class="calc-row discount-row">
-                  <span>Discount (₹)</span>
-                  <input type="number" id="bill-discount-input" value="0" min="0" step="1" oninput="recalculateBillTotals()" class="mini-calc-input">
-                </div>
-
-                <div class="calc-row charges-row">
-                  <span>Additional Charges (₹)</span>
-                  <input type="number" id="bill-charges-input" value="0" min="0" step="1" oninput="recalculateBillTotals()" class="mini-calc-input">
-                </div>
-
-                <div class="calc-row total-row">
-                  <span>Total Payable Amount</span>
-                  <strong id="bill-total-display">₹0</strong>
-                </div>
-
-                <div class="calc-row received-row">
-                  <span>Amount Received (₹)</span>
-                  <input type="number" id="bill-received-input" value="0" min="0" step="1" oninput="recalculateBillTotals()" class="mini-calc-input input-received">
-                </div>
-
-                <div class="calc-row balance-row">
-                  <span>Balance Due</span>
-                  <span id="bill-balance-display" class="balance-zero">₹0</span>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block btn-generate-bill" id="btn-generate-bill">
-                  <span>⚡ Generate Bill</span>
-                  <span class="total-badge" id="btn-bill-total-badge">₹0</span>
-                </button>
-              </div>
-            </div>
-          </form>
-        </section>
-
-        <!-- ==================== VIEW 3: CUSTOMERS ==================== -->
-        <section id="view-customers" class="app-view hidden">
-          <div class="view-header">
-            <div>
-              <h2>Customer Management</h2>
-              <p class="subtitle">Complete customer ledger, purchase histories, and credit settlement</p>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="openNewCustomerModal()">
-              <span>+ Add Customer</span>
+            <button class="btn btn-amber btn-sm" onclick="navigateTo('locations')">
+              <span>View Due Locations Map</span>
             </button>
           </div>
 
-          <!-- Customer Filter Bar -->
-          <div class="filter-bar">
-            <div class="search-box">
-              <span class="search-icon">🔍</span>
-              <input type="text" id="customer-table-search" placeholder="Search customer name, mobile, shop..." oninput="filterCustomerTable(this.value)">
-            </div>
-            <div class="filter-chips">
-              <button class="filter-chip active" onclick="filterCustomerCategory('All', this)">All</button>
-              <button class="filter-chip" onclick="filterCustomerCategory('Wholesale', this)">Wholesale</button>
-              <button class="filter-chip" onclick="filterCustomerCategory('Retail', this)">Retail</button>
-              <button class="filter-chip" onclick="filterCustomerCategory('Event Planner', this)">Event Planner</button>
-              <button class="filter-chip" onclick="filterCustomerCategory('Regular Buyer', this)">Regular Buyer</button>
-            </div>
-          </div>
-
-          <!-- Customers Table -->
-          <div class="content-card">
-            <div class="table-responsive">
-              <table class="table" id="customers-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Mobile</th>
-                    <th>Category</th>
-                    <th>Total Purchase</th>
-                    <th>Outstanding</th>
-                    <th>Last Purchase</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="customers-tbody">
-                  <!-- Populated from backend -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Selected Customer Profile Card / Drawer -->
-          <div class="content-card customer-detail-drawer" id="customer-profile-card">
-            <div class="profile-header">
-              <div class="profile-title-row">
-                <div class="profile-avatar" id="cust-profile-avatar">S</div>
+          <!-- DASHBOARD TWO-COLUMN LAYOUT -->
+          <div class="dashboard-dual-grid">
+            <!-- Left: Recent Real Collections -->
+            <div class="content-card">
+              <div class="card-header">
                 <div>
-                  <h3 id="cust-profile-name">Sree Flowers</h3>
-                  <div class="profile-meta">
-                    <span id="cust-profile-id" class="badge-code">C001</span>
-                    <span id="cust-profile-mobile">Mobile: 9876543210</span>
-                    <span id="cust-profile-cat" class="badge-cat">Wholesale</span>
-                  </div>
+                  <h3>Recent Harvest Collections</h3>
+                  <p class="card-sub">Latest verified flower collections from farmers</p>
+                </div>
+                <button class="btn btn-outline btn-xs" onclick="navigateTo('collections')">View All</button>
+              </div>
+
+              <div class="table-responsive" id="dash-collections-table-wrap">
+                <!-- Dynamically populated or empty state -->
+              </div>
+            </div>
+
+            <!-- Right: Real Breakdown & Audit Snippet -->
+            <div class="dashboard-sidebar-column">
+              <!-- Flower Type Volume -->
+              <div class="content-card">
+                <div class="card-header">
+                  <h3>Flower Variety Breakdown</h3>
+                  <p class="card-sub">Aggregated from real collections</p>
+                </div>
+                <div id="dash-flower-breakdown-list" class="summary-list">
+                  <!-- Populated or empty state -->
                 </div>
               </div>
-              <div class="profile-actions">
-                <button class="btn btn-outline btn-sm" onclick="openSettleCreditModal()">
-                  <span>💵 Settle Balance</span>
-                </button>
-                <button class="btn btn-primary btn-sm" onclick="startBillForCustomer()">
-                  <span>🧾 New Bill</span>
-                </button>
-              </div>
-            </div>
 
-            <!-- Metric summary boxes -->
-            <div class="customer-stats-grid">
-              <div class="stat-box">
-                <span class="stat-label">Total Purchased</span>
-                <span class="stat-val" id="cust-stat-purchased">₹18,450</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Total Weight</span>
-                <span class="stat-val" id="cust-stat-weight">45.5 kg</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Total Paid</span>
-                <span class="stat-val" id="cust-stat-paid">₹16,450</span>
-              </div>
-              <div class="stat-box outstanding-box">
-                <span class="stat-label">Outstanding Balance</span>
-                <span class="stat-val text-rose" id="cust-stat-outstanding">₹2,000</span>
-              </div>
-            </div>
-
-            <!-- Tabs: Purchase History & Frequent Flowers -->
-            <div class="profile-tabs-header">
-              <button class="profile-tab active" onclick="switchCustomerTab('history', this)">Purchase History</button>
-              <button class="profile-tab" onclick="switchCustomerTab('frequent', this)">Frequently Purchased</button>
-            </div>
-
-            <div id="cust-tab-history" class="profile-tab-content">
-              <table class="table mini-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Invoice No</th>
-                    <th>Items</th>
-                    <th>Total Weight</th>
-                    <th>Amount</th>
-                    <th>Payment</th>
-                  </tr>
-                </thead>
-                <tbody id="cust-invoices-tbody">
-                  <!-- Populated from backend -->
-                </tbody>
-              </table>
-            </div>
-
-            <div id="cust-tab-frequent" class="profile-tab-content hidden">
-              <div class="frequent-flowers-grid" id="cust-frequent-grid">
-                <!-- Dynamically populated -->
+              <!-- Recent Audit Trail Snippet -->
+              <div class="content-card">
+                <div class="card-header">
+                  <h3>System Audit Stream</h3>
+                  <p class="card-sub">Immutable security & change log</p>
+                </div>
+                <div id="dash-audit-stream-list" class="audit-stream">
+                  <!-- Populated or empty state -->
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- ==================== VIEW 4: FLOWER INVENTORY ==================== -->
-        <section id="view-inventory" class="app-view hidden">
+        <!-- ==================== VIEW 2: FARMERS MANAGEMENT ==================== -->
+        <section id="view-farmers" class="app-view hidden">
           <div class="view-header">
             <div>
-              <h2>Flower Inventory Management</h2>
-              <p class="subtitle">Live flower stock tracking, weight inwards, wastage, and threshold alerts</p>
+              <h2>Farmer Directory & Registry</h2>
+              <p class="subtitle">Complete profile records, contact information, GPS location tracking, and harvest histories</p>
             </div>
             <div class="header-actions">
-              <button class="btn btn-outline btn-sm" onclick="openWastageModal()">
-                <span>🥀 Record Wastage</span>
+              <button class="btn btn-outline btn-sm" onclick="exportFarmersCsv()">
+                <span>📑 Export CSV</span>
               </button>
-              <button class="btn btn-outline btn-sm" onclick="openNewFlowerModal()">
-                <span>🌸 + New Variety</span>
-              </button>
-              <button class="btn btn-primary btn-sm" onclick="openAddStockModal()">
-                <span>📥 + Add Stock</span>
+              <button class="btn btn-primary btn-sm" onclick="openNewFarmerModal()">
+                <span>+ Register New Farmer</span>
               </button>
             </div>
           </div>
 
-          <!-- Main Flower Inventory Table -->
+          <!-- Filter & Search Toolbar -->
+          <div class="toolbar-card">
+            <div class="toolbar-left">
+              <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="farmer-search-input" placeholder="Search by Farmer ID, Name, Phone..." oninput="onFarmerSearchChange(this.value)">
+              </div>
+
+              <select id="farmer-village-filter" onchange="onFarmerFilterChange()">
+                <option value="">All Villages</option>
+              </select>
+
+              <select id="farmer-review-filter" onchange="onFarmerFilterChange()">
+                <option value="">All Location Statuses</option>
+                <option value="verified">Verified (&lt;15 Days)</option>
+                <option value="due_soon">Due Soon (&lt;3 Days)</option>
+                <option value="overdue">Overdue (&gt;15 Days)</option>
+                <option value="unavailable">Location Unavailable</option>
+              </select>
+            </div>
+
+            <div class="toolbar-right">
+              <span class="records-counter" id="farmers-records-counter">0 farmers</span>
+            </div>
+          </div>
+
+          <!-- Farmers Table -->
           <div class="content-card">
             <div class="table-responsive">
-              <table class="table" id="inventory-table">
+              <table class="table" id="farmers-main-table">
                 <thead>
                   <tr>
-                    <th>Flower Type</th>
-                    <th>Variety</th>
-                    <th>Available Stock</th>
-                    <th>Unit</th>
-                    <th>Min. Stock</th>
-                    <th>Selling Rate</th>
-                    <th>Purchase Cost</th>
-                    <th>Status</th>
+                    <th>Farmer ID</th>
+                    <th>Full Name</th>
+                    <th>Contact Phone</th>
+                    <th>Village</th>
+                    <th>15-Day Location Status</th>
+                    <th>Total Harvest (kg)</th>
+                    <th>Total Payout (₹)</th>
+                    <th>Last Collection</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody id="inventory-tbody">
-                  <!-- Dynamic Flowers from DB -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Stock Movements Audit Table -->
-          <div class="content-card">
-            <div class="card-header">
-              <div>
-                <h3>Stock Movements & Inward History</h3>
-                <p class="card-sub">Audit trail of purchases, sales deductions, and wastage recordings</p>
-              </div>
-              <button class="btn btn-outline btn-xs" onclick="fetchStockMovements()">🔄 Refresh</button>
-            </div>
-            <div class="table-responsive">
-              <table class="table mini-table" id="movements-table">
-                <thead>
-                  <tr>
-                    <th>Date & Time</th>
-                    <th>Flower Type</th>
-                    <th>Variety</th>
-                    <th>Movement Type</th>
-                    <th>Weight</th>
-                    <th>Cost / Rate</th>
-                    <th>Supplier / Reason</th>
-                    <th>Recorded By</th>
-                  </tr>
-                </thead>
-                <tbody id="movements-tbody">
-                  <!-- Dynamic Movements from DB -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- ==================== VIEW 5: PAYMENTS & CREDIT ==================== -->
-        <section id="view-payments" class="app-view hidden">
-          <div class="view-header">
-            <div>
-              <h2>Payments & Credit Management</h2>
-              <p class="subtitle">Cash collection ledger, UPI verification, and credit payment receipts</p>
-            </div>
-          </div>
-
-          <div class="content-card">
-            <div class="table-responsive">
-              <table class="table" id="payments-table">
-                <thead>
-                  <tr>
-                    <th>Receipt No</th>
-                    <th>Customer Name</th>
-                    <th>Invoice / Reference</th>
-                    <th>Amount</th>
-                    <th>Payment Method</th>
-                    <th>Date & Time</th>
-                    <th>Notes</th>
-                    <th>Recorded By</th>
-                  </tr>
-                </thead>
-                <tbody id="payments-tbody">
+                <tbody id="farmers-table-tbody">
                   <!-- Populated dynamically -->
                 </tbody>
               </table>
             </div>
+
+            <!-- Pagination -->
+            <div class="pagination-footer" id="farmers-pagination"></div>
           </div>
         </section>
 
-        <!-- ==================== VIEW 6: REPORTS & ANALYTICS ==================== -->
-        <section id="view-reports" class="app-view hidden">
+        <!-- ==================== VIEW 3: 15-DAY FARMER LOCATIONS & MAP ==================== -->
+        <section id="view-locations" class="app-view hidden">
           <div class="view-header">
             <div>
-              <h2>Reports & Analytics</h2>
-              <p class="subtitle">Comprehensive flower sales reports, gross profit estimation, and data exports</p>
+              <h2>15-Day Farmer Location Review & Map</h2>
+              <p class="subtitle">Interactive mapping and mandatory 15-day location verification cycle for flower collection routes</p>
             </div>
             <div class="header-actions">
-              <button class="btn btn-outline btn-sm" onclick="exportReport('excel')">
-                <span>📊 Export Excel</span>
+              <button class="btn btn-outline btn-sm" onclick="runManualLocationReviewScan()">
+                <span>🔄 Run 15-Day Review Scan</span>
               </button>
-              <button class="btn btn-outline btn-sm" onclick="exportReport('pdf')">
-                <span>📄 Export PDF</span>
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="exportReport('csv')">
-                <span>📑 Export CSV</span>
+              <button class="btn btn-outline btn-sm" onclick="exportLocationsCsv()">
+                <span>📑 Export Location Statuses</span>
               </button>
             </div>
           </div>
 
-          <!-- Reports KPI Strip -->
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div class="kpi-top"><span class="kpi-label">Total Sales</span></div>
-              <div class="kpi-value" id="report-sales">₹2,48,650</div>
-              <div class="kpi-trend positive"><span>↑ 12%</span></div>
+          <!-- Location Review Status Legend Bar -->
+          <div class="location-status-bar">
+            <div class="status-legend-item">
+              <span class="legend-dot dot-verified"></span>
+              <span><strong>Verified:</strong> Reviewed within 15 days</span>
             </div>
-            <div class="kpi-card">
-              <div class="kpi-top"><span class="kpi-label">Total Orders</span></div>
-              <div class="kpi-value" id="report-orders">156</div>
-              <div class="kpi-trend positive"><span>↑ 8%</span></div>
+            <div class="status-legend-item">
+              <span class="legend-dot dot-due-soon"></span>
+              <span><strong>Due Soon:</strong> Due within 3 days</span>
             </div>
-            <div class="kpi-card">
-              <div class="kpi-top"><span class="kpi-label">Cash Collection</span></div>
-              <div class="kpi-value" id="report-cash">₹1,32,450</div>
-              <div class="kpi-trend positive"><span>53% of total</span></div>
+            <div class="status-legend-item">
+              <span class="legend-dot dot-overdue"></span>
+              <span><strong>Overdue:</strong> >15 days without review</span>
             </div>
-            <div class="kpi-card">
-              <div class="kpi-top"><span class="kpi-label">UPI Collection</span></div>
-              <div class="kpi-value" id="report-upi">₹96,230</div>
-              <div class="kpi-trend positive"><span>39% of total</span></div>
-            </div>
-            <div class="kpi-card admin-only">
-              <div class="kpi-top"><span class="kpi-label">Estimated Gross Profit</span></div>
-              <div class="kpi-value text-green" id="report-profit">₹62,400</div>
-              <div class="kpi-meta text-xs">*Net purchase cost estimate. Not certified accounting.</div>
+            <div class="status-legend-item">
+              <span class="legend-dot dot-unavailable"></span>
+              <span><strong>Unavailable:</strong> No GPS coordinates recorded</span>
             </div>
           </div>
 
-          <!-- Analytics Charts -->
-          <div class="dashboard-grid-row">
-            <div class="content-card">
-              <div class="card-header">
-                <h3>Sales Trend</h3>
-                <p class="card-sub">Daily revenue progress</p>
+          <!-- Map Container -->
+          <div class="content-card map-card">
+            <div class="map-card-header">
+              <div class="map-controls">
+                <span class="map-title">Interactive Collection Map</span>
+                <span class="map-sub" id="map-active-count">Showing 0 mapped farmers</span>
               </div>
-              <div class="chart-wrapper">
-                <canvas id="salesTrendChart"></canvas>
-              </div>
-            </div>
-
-            <div class="content-card">
-              <div class="card-header">
-                <h3>Flower-wise Sales Share</h3>
-                <p class="card-sub">Distribution of sales by flower type</p>
-              </div>
-              <div class="chart-wrapper">
-                <canvas id="flowerDistributionChart"></canvas>
+              <div class="map-filter-group">
+                <select id="map-filter-status" onchange="loadMapData()">
+                  <option value="">All Mapped Farmers</option>
+                  <option value="verified">Verified Only</option>
+                  <option value="due_soon">Due Soon Only</option>
+                  <option value="overdue">Overdue Review Only</option>
+                </select>
               </div>
             </div>
+            <div id="farmers-leaflet-map" class="leaflet-map-container"></div>
           </div>
 
-          <!-- Flower-wise detailed summary table -->
+          <!-- Farmers Due for Location Review Table -->
           <div class="content-card">
             <div class="card-header">
-              <h3>Flower Sales Performance Table</h3>
+              <div>
+                <h3>Farmers Due or Overdue for 15-Day Location Review</h3>
+                <p class="card-sub">Authorized location verification required to refresh collection logistics</p>
+              </div>
             </div>
             <div class="table-responsive">
-              <table class="table" id="report-flowers-table">
+              <table class="table" id="due-locations-table">
                 <thead>
                   <tr>
-                    <th>Flower Name</th>
-                    <th>Total Weight Sold</th>
-                    <th>Total Revenue</th>
-                    <th>Avg Selling Rate</th>
-                    <th>Est. COGS</th>
-                    <th>Est. Margin</th>
+                    <th>Farmer</th>
+                    <th>Village</th>
+                    <th>Contact Phone</th>
+                    <th>Current GPS</th>
+                    <th>Last Reviewed</th>
+                    <th>Next Due Date</th>
+                    <th>Review Status</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
-                <tbody id="report-flowers-tbody"></tbody>
+                <tbody id="due-locations-tbody"></tbody>
               </table>
             </div>
           </div>
         </section>
 
-        <!-- ==================== VIEW 7: STAFF & ROLES ==================== -->
-        <section id="view-staff" class="app-view hidden admin-only">
+        <!-- ==================== VIEW 4: FLOWER HARVEST COLLECTIONS ==================== -->
+        <section id="view-collections" class="app-view hidden">
           <div class="view-header">
             <div>
-              <h2>Staff & Role-Based Access</h2>
-              <p class="subtitle">Manage staff accounts, PINs, and role permissions</p>
+              <h2>Farmer Flower Collections</h2>
+              <p class="subtitle">Complete harvest intake ledger, flower varieties, weights, payouts, and reversals</p>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="openNewStaffModal()">
-              <span>+ Add Staff Member</span>
-            </button>
-          </div>
-
-          <!-- Permissions Matrix Card -->
-          <div class="content-card">
-            <div class="card-header">
-              <h3>Role Permissions Matrix</h3>
-            </div>
-            <div class="table-responsive">
-              <table class="table permissions-table">
-                <thead>
-                  <tr>
-                    <th>Feature / Capability</th>
-                    <th>Admin / Owner</th>
-                    <th>Manager</th>
-                    <th>Cashier / Staff</th>
-                    <th>Stock Manager</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Create & Print Invoices</td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                  </tr>
-                  <tr>
-                    <td>Customer Database & Credits</td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                  </tr>
-                  <tr>
-                    <td>Add Flower Stock & Purchases</td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                  </tr>
-                  <tr>
-                    <td>Record Spoilage / Wastage</td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                    <td><span class="perm-yes">✓</span></td>
-                  </tr>
-                  <tr>
-                    <td>View Sales & Profit Estimates</td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-yes">✓ (Sales)</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                  </tr>
-                  <tr>
-                    <td>Delete Invoices & Adjust Database</td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                  </tr>
-                  <tr>
-                    <td>Staff Management & Audit Trail</td>
-                    <td><span class="perm-yes">✓</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                    <td><span class="perm-no">✕</span></td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="header-actions">
+              <button class="btn btn-outline btn-sm" onclick="exportCollectionsCsv()">
+                <span>📑 Export Collections CSV</span>
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="openNewCollectionModal()">
+                <span>🌸 + Record Collection</span>
+              </button>
             </div>
           </div>
 
-          <!-- Staff Accounts Table -->
-          <div class="content-card">
-            <div class="card-header">
-              <h3>Authorized Staff Users</h3>
+          <!-- Filter Toolbar -->
+          <div class="toolbar-card">
+            <div class="toolbar-left">
+              <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="collection-search-input" placeholder="Search Collection ID or Farmer..." oninput="onCollectionFilterChange()">
+              </div>
+
+              <select id="collection-flower-filter" onchange="onCollectionFilterChange()">
+                <option value="">All Flower Types</option>
+                <option value="Jasmine">Jasmine</option>
+                <option value="Rose">Rose</option>
+                <option value="Marigold">Marigold</option>
+                <option value="Chrysanthemum">Chrysanthemum</option>
+                <option value="Lotus">Lotus</option>
+                <option value="Tuberose">Tuberose</option>
+                <option value="Lily">Lily</option>
+              </select>
+
+              <select id="collection-pay-filter" onchange="onCollectionFilterChange()">
+                <option value="">All Payment Statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
+              </select>
             </div>
+
+            <div class="toolbar-right">
+              <span class="records-counter" id="collections-records-counter">0 collections</span>
+            </div>
+          </div>
+
+          <!-- Collections Table -->
+          <div class="content-card">
             <div class="table-responsive">
-              <table class="table" id="staff-table">
+              <table class="table" id="collections-main-table">
                 <thead>
                   <tr>
-                    <th>User ID</th>
-                    <th>Full Name</th>
-                    <th>Username</th>
-                    <th>Mobile</th>
-                    <th>Assigned Role</th>
-                    <th>Quick PIN</th>
-                    <th>Status</th>
+                    <th>Collection ID</th>
+                    <th>Date</th>
+                    <th>Farmer</th>
+                    <th>Village</th>
+                    <th>Flower & Variety</th>
+                    <th>Quantity (kg)</th>
+                    <th>Rate (₹/kg)</th>
+                    <th>Total Payout (₹)</th>
+                    <th>Quality</th>
+                    <th>Payment</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody id="staff-tbody"></tbody>
+                <tbody id="collections-table-tbody"></tbody>
               </table>
             </div>
+
+            <!-- Pagination -->
+            <div class="pagination-footer" id="collections-pagination"></div>
           </div>
         </section>
 
-        <!-- ==================== VIEW 8: SETTINGS & BACKUP ==================== -->
-        <section id="view-settings" class="app-view hidden admin-only">
+        <!-- ==================== VIEW 5: REPORTS & EXPORTS ==================== -->
+        <section id="view-reports" class="app-view hidden">
           <div class="view-header">
             <div>
-              <h2>Store Settings & Database</h2>
-              <p class="subtitle">Shop branding, GSTIN, invoice prefixes, and database backups</p>
+              <h2>Reports & Audited Exports</h2>
+              <p class="subtitle">Real aggregate summaries of harvest intake, farmer disbursements, and location audits</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-outline btn-sm" onclick="exportCollectionsCsv()">
+                <span>📥 Export Collections CSV</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="exportFarmersCsv()">
+                <span>📥 Export Farmers CSV</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="window.print()">
+                <span>🖨️ Print Summary</span>
+              </button>
             </div>
           </div>
 
-          <div class="dashboard-grid-row">
+          <!-- Summary Metric Cards -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-title">Aggregated Volume</span>
+              <div class="stat-number" id="rep-total-kg">0 kg</div>
+              <div class="stat-sub" id="rep-total-orders">0 harvest batches</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-title">Disbursed Payout</span>
+              <div class="stat-number text-green" id="rep-disbursed">₹0</div>
+              <div class="stat-sub">Paid to farmers</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-title">Pending Farmer Dues</span>
+              <div class="stat-number text-rose" id="rep-pending">₹0</div>
+              <div class="stat-sub">Awaiting disbursement</div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-title">Active Contributing Farmers</span>
+              <div class="stat-number" id="rep-active-farmers">0</div>
+              <div class="stat-sub">Supplying harvest</div>
+            </div>
+          </div>
+
+          <div class="dashboard-dual-grid">
             <div class="content-card">
               <div class="card-header">
-                <h3>Shop Profile</h3>
+                <h3>Flower Variety Performance</h3>
+                <p class="card-sub">Recorded quantities and financial payout</p>
               </div>
-              <form id="settings-form" onsubmit="handleSaveSettings(event)">
-                <div class="form-group">
-                  <label for="setting-shop-name">Shop Name</label>
-                  <input type="text" id="setting-shop-name" value="Fresh Blooms" required>
-                </div>
-                <div class="form-group">
-                  <label for="setting-tagline">Tagline</label>
-                  <input type="text" id="setting-tagline" value="FLOWERS • BILLS • GROWTH">
-                </div>
-                <div class="form-group">
-                  <label for="setting-address">Shop Address</label>
-                  <input type="text" id="setting-address" value="125 Flower Street, Koyambedu Flower Market, Chennai - 600001">
-                </div>
-                <div class="form-row-2">
-                  <div class="form-group">
-                    <label for="setting-phone">Phone / Mobile</label>
-                    <input type="text" id="setting-phone" value="+91 98765 43210">
-                  </div>
-                  <div class="form-group">
-                    <label for="setting-gstin">GSTIN (Optional)</label>
-                    <input type="text" id="setting-gstin" value="33ABCDE1234F1Z5">
-                  </div>
-                </div>
-                <div class="form-row-2">
-                  <div class="form-group">
-                    <label for="setting-prefix">Invoice Prefix</label>
-                    <input type="text" id="setting-prefix" value="FB">
-                  </div>
-                  <div class="form-group">
-                    <label for="setting-currency">Currency Symbol</label>
-                    <input type="text" id="setting-currency" value="₹">
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="setting-footer">Receipt Footer Note</label>
-                  <input type="text" id="setting-footer" value="Thank you for choosing Fresh Blooms! Fresh Flowers • Happy Customers • Better Business">
-                </div>
-                <button type="submit" class="btn btn-primary">Save Settings</button>
-              </form>
+              <div class="table-responsive">
+                <table class="table" id="report-flowers-table">
+                  <thead>
+                    <tr>
+                      <th>Flower Type</th>
+                      <th>Quantity (kg)</th>
+                      <th>Total Value (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="report-flowers-tbody"></tbody>
+                </table>
+              </div>
             </div>
 
             <div class="content-card">
               <div class="card-header">
-                <h3>Data Backup & Restore</h3>
+                <h3>Village-wise Collection Summary</h3>
+                <p class="card-sub">Breakdown by farmer localities</p>
               </div>
-              <div class="backup-info">
-                <p>Download a complete JSON snapshot of all customers, stock movements, invoices, items, payments, and audit logs.</p>
-                <div class="backup-actions">
-                  <a href="/api/backup" download="fresh_blooms_backup.json" class="btn btn-outline btn-block">
-                    <span>💾 Download Full Database Backup</span>
-                  </a>
-                </div>
+              <div class="table-responsive">
+                <table class="table" id="report-villages-table">
+                  <thead>
+                    <tr>
+                      <th>Village</th>
+                      <th>Collections</th>
+                      <th>Total Weight (kg)</th>
+                      <th>Total Value (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="report-villages-tbody"></tbody>
+                </table>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- ==================== VIEW 9: AUDIT LOGS ==================== -->
-        <section id="view-audit" class="app-view hidden admin-only">
+        <!-- ==================== VIEW 6: IMMUTABLE AUDIT TRAIL ==================== -->
+        <section id="view-audit" class="app-view hidden">
           <div class="view-header">
             <div>
-              <h2>Audit Trail & System Logs</h2>
-              <p class="subtitle">Immutable record of logins, bills, stock updates, and admin overrides</p>
+              <h2>Immutable System Audit Trail</h2>
+              <p class="subtitle">Complete chronological record of all administrative activities, farmer changes, location reviews, and collections</p>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="fetchAuditLogs()">🔄 Refresh</button>
+            <button class="btn btn-outline btn-sm" onclick="fetchAuditLogs()">
+              <span>🔄 Refresh Audit Logs</span>
+            </button>
           </div>
 
           <div class="content-card">
             <div class="table-responsive">
-              <table class="table" id="audit-table">
+              <table class="table" id="audit-logs-table">
                 <thead>
                   <tr>
                     <th>Timestamp</th>
-                    <th>User</th>
-                    <th>Role</th>
+                    <th>Administrator</th>
                     <th>Action</th>
-                    <th>Details</th>
+                    <th>Entity Type</th>
+                    <th>Entity ID</th>
+                    <th>Event Details</th>
+                    <th>IP Address</th>
                   </tr>
                 </thead>
-                <tbody id="audit-tbody"></tbody>
+                <tbody id="audit-logs-tbody"></tbody>
               </table>
+            </div>
+
+            <div class="pagination-footer" id="audit-pagination"></div>
+          </div>
+        </section>
+
+        <!-- ==================== VIEW 7: ADMIN PROFILE & SECURITY ==================== -->
+        <section id="view-profile" class="app-view hidden">
+          <div class="view-header">
+            <div>
+              <h2>Administrator Profile & Security</h2>
+              <p class="subtitle">Account credentials, security controls, and database disaster recovery</p>
+            </div>
+          </div>
+
+          <div class="dashboard-dual-grid">
+            <!-- Account Details & Change Password -->
+            <div class="content-card">
+              <div class="card-header">
+                <h3>Administrator Account</h3>
+                <p class="card-sub">Current active credentials</p>
+              </div>
+
+              <div class="profile-info-grid">
+                <div class="info-row">
+                  <span class="info-label">Full Name:</span>
+                  <strong id="profile-full-name">Administrator</strong>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Username:</span>
+                  <code id="profile-username">admin</code>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Email Address:</span>
+                  <span id="profile-email">admin@freshblooms.com</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Role:</span>
+                  <span class="badge-tag">Super Administrator</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Last Successful Login:</span>
+                  <span id="profile-last-login">—</span>
+                </div>
+              </div>
+
+              <div class="nav-separator"></div>
+
+              <h4 style="margin-bottom: 12px;">Change Administrator Password</h4>
+              <form id="change-password-form" onsubmit="handleChangePassword(event)">
+                <div class="form-group">
+                  <label for="pw-current">Current Password *</label>
+                  <input type="password" id="pw-current" required placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                  <label for="pw-new">New Password * (Min. 8 characters)</label>
+                  <input type="password" id="pw-new" required minlength="8" placeholder="Enter new strong password">
+                </div>
+                <div class="form-group">
+                  <label for="pw-confirm">Confirm New Password *</label>
+                  <input type="password" id="pw-confirm" required minlength="8" placeholder="Confirm new password">
+                </div>
+                <button type="submit" class="btn btn-primary" id="btn-change-pw">
+                  Update Administrator Password
+                </button>
+              </form>
+            </div>
+
+            <!-- Database Backup & Security Controls -->
+            <div class="content-card">
+              <div class="card-header">
+                <h3>Disaster Recovery & Database Backup</h3>
+                <p class="card-sub">Full atomic JSON export of all farmer and collection records</p>
+              </div>
+
+              <div class="backup-card-body">
+                <p>Download a point-in-time snapshot of the database including all farmer profiles, 15-day location verification histories, collection ledgers, and audit logs.</p>
+                <div style="margin: 20px 0;">
+                  <a href="/api/backup" id="btn-download-backup" class="btn btn-outline btn-block">
+                    <span>💾 Download Full Database Backup (.json)</span>
+                  </a>
+                </div>
+                <div class="security-card-notes">
+                  <h5>🔒 Security Safeguards Active:</h5>
+                  <ul>
+                    <li>Single Admin-only RBAC access enforcement.</li>
+                    <li>BCrypt 12-round salted password hashing.</li>
+                    <li>JWT token session validation with 8-hour expiration.</li>
+                    <li>In-memory login brute-force attack rate limiting.</li>
+                    <li>Append-only immutable audit trail for all business mutations.</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1143,343 +757,342 @@
     </main>
   </div>
 
-  <!-- ==================== INVOICE PREVIEW & PRINT MODAL ==================== -->
-  <div id="invoice-modal" class="modal-overlay hidden">
-    <div class="modal-card modal-invoice">
-      <div class="invoice-modal-header no-print">
-        <div class="modal-title-wrap">
-          <span class="celebrate-badge">🎉 Bill Generated Successfully!</span>
-          <p>Invoice #<span id="modal-invoice-no-title">FB001567</span></p>
+  <!-- ==================== MODAL: REGISTER FARMER ==================== -->
+  <div id="new-farmer-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeNewFarmerModal()">×</button>
+      <div class="modal-header">
+        <h3>Register New Farmer</h3>
+        <p>Add a flower cultivator to the central registry</p>
+      </div>
+      <form id="new-farmer-form" onsubmit="handleCreateFarmer(event)">
+        <div class="form-group">
+          <label for="farmer-name">Full Name *</label>
+          <input type="text" id="farmer-name" placeholder="e.g. Murugan Velu" required>
         </div>
-        <div class="invoice-modal-actions">
-          <button class="btn btn-primary btn-sm" onclick="printInvoiceModal()">
-            <span>🖨️ Print Invoice</span>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="farmer-contact">Contact Phone *</label>
+            <input type="tel" id="farmer-contact" placeholder="e.g. 9876543210" required>
+          </div>
+          <div class="form-group">
+            <label for="farmer-village">Village / Locality *</label>
+            <input type="text" id="farmer-village" placeholder="e.g. Thovalai, Kanyakumari" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="farmer-address">Farm / Residential Address</label>
+          <input type="text" id="farmer-address" placeholder="e.g. 45 South Street, Near Temple">
+        </div>
+
+        <div class="gps-field-group">
+          <div class="gps-header">
+            <label>GPS Coordinates (For 15-Day Location Tracking)</label>
+            <button type="button" class="btn btn-outline btn-xs" onclick="captureDeviceCoordinates('farmer-lat', 'farmer-lng')">
+              📍 Capture Current GPS
+            </button>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="farmer-lat">Latitude</label>
+              <input type="number" id="farmer-lat" step="any" placeholder="e.g. 8.2435">
+            </div>
+            <div class="form-group">
+              <label for="farmer-lng">Longitude</label>
+              <input type="number" id="farmer-lng" step="any" placeholder="e.g. 77.4982">
+            </div>
+          </div>
+          <small class="text-subtle">Providing verified coordinates will initiate the 15-day review cycle immediately.</small>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <label for="farmer-notes">Notes / Cultivation Details</label>
+          <textarea id="farmer-notes" rows="2" placeholder="e.g. Specializes in Mogra Jasmine, 2 acres"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-save-farmer">
+          Save Farmer Registration
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: RECORD HARVEST COLLECTION ==================== -->
+  <div id="new-collection-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeNewCollectionModal()">×</button>
+      <div class="modal-header">
+        <h3>Record Flower Collection</h3>
+        <p>Log intake of flower harvest batch from registered farmer</p>
+      </div>
+      <form id="new-collection-form" onsubmit="handleCreateCollection(event)">
+        <div class="form-group">
+          <label for="col-farmer-select">Select Registered Farmer *</label>
+          <select id="col-farmer-select" required onchange="onCollectionFarmerChange(this.value)">
+            <option value="">-- Choose Farmer --</option>
+          </select>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="col-date">Collection Date *</label>
+            <input type="date" id="col-date" required>
+          </div>
+          <div class="form-group">
+            <label for="col-flower-type">Flower Type *</label>
+            <select id="col-flower-type" required>
+              <option value="Jasmine">Jasmine (Mogra/Sevvanthi)</option>
+              <option value="Rose">Rose (Red/Pink)</option>
+              <option value="Marigold">Marigold (Yellow/Orange)</option>
+              <option value="Chrysanthemum">Chrysanthemum</option>
+              <option value="Lotus">Lotus</option>
+              <option value="Tuberose">Tuberose</option>
+              <option value="Lily">Lily</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="col-variety">Variety</label>
+            <input type="text" id="col-variety" placeholder="e.g. First Grade Mogra">
+          </div>
+          <div class="form-group">
+            <label for="col-quality">Quality Grade</label>
+            <select id="col-quality">
+              <option value="Grade A">Grade A (Premium Fresh)</option>
+              <option value="Grade B">Grade B (Standard)</option>
+              <option value="Grade C">Grade C (Local/Loose)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="col-weight">Quantity (kg) *</label>
+            <input type="number" id="col-weight" min="0.1" step="0.1" placeholder="e.g. 25.5" required oninput="calcCollectionTotal()">
+          </div>
+          <div class="form-group">
+            <label for="col-rate">Rate per kg (₹) *</label>
+            <input type="number" id="col-rate" min="1" step="1" placeholder="e.g. 350" required oninput="calcCollectionTotal()">
+          </div>
+        </div>
+
+        <div class="calc-highlight-box">
+          <span>Total Farmer Payout:</span>
+          <strong id="col-total-display">₹0</strong>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="col-payment-status">Disbursement Status</label>
+            <select id="col-payment-status">
+              <option value="Paid">Paid Immediately</option>
+              <option value="Pending" selected>Pending Disbursement</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="col-payment-mode">Payment Mode</label>
+            <select id="col-payment-mode">
+              <option value="Cash">Cash</option>
+              <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
+              <option value="UPI">UPI</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Optional Field GPS Capture during Collection -->
+        <div class="gps-field-group">
+          <div class="gps-header">
+            <label>Field Collection GPS (Refreshes 15-Day Location)</label>
+            <button type="button" class="btn btn-outline btn-xs" onclick="captureDeviceCoordinates('col-lat', 'col-lng')">
+              📍 Capture Field Location
+            </button>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <input type="number" id="col-lat" step="any" placeholder="Latitude (Optional)">
+            </div>
+            <div class="form-group">
+              <input type="number" id="col-lng" step="any" placeholder="Longitude (Optional)">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 10px;">
+          <label for="col-notes">Collection Notes</label>
+          <input type="text" id="col-notes" placeholder="e.g. Morning 6 AM harvest intake">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-save-collection">
+          Save Harvest Collection
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: 15-DAY LOCATION REVIEW / UPDATE ==================== -->
+  <div id="location-review-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeLocationReviewModal()">×</button>
+      <div class="modal-header">
+        <h3>15-Day Location Review</h3>
+        <p id="loc-review-subtitle">Verify and update farmer location records</p>
+      </div>
+      <form id="location-review-form" onsubmit="handleSubmitLocationReview(event)">
+        <input type="hidden" id="loc-review-farmer-id">
+
+        <div class="review-status-notice">
+          <div>
+            <span class="info-label">Farmer:</span>
+            <strong id="loc-review-farmer-name">—</strong> (<span id="loc-review-farmer-code">—</span>)
+          </div>
+          <div style="margin-top: 4px;">
+            <span class="info-label">Current Review Status:</span>
+            <span id="loc-review-status-pill" class="badge-tag">—</span>
+          </div>
+        </div>
+
+        <div class="gps-field-group">
+          <div class="gps-header">
+            <label>Verified GPS Coordinates *</label>
+            <button type="button" class="btn btn-outline btn-xs" onclick="captureDeviceCoordinates('loc-review-lat', 'loc-review-lng')">
+              📍 Current Device GPS
+            </button>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="loc-review-lat">Latitude *</label>
+              <input type="number" id="loc-review-lat" step="any" required placeholder="e.g. 8.2435">
+            </div>
+            <div class="form-group">
+              <label for="loc-review-lng">Longitude *</label>
+              <input type="number" id="loc-review-lng" step="any" required placeholder="e.g. 77.4982">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="loc-review-village">Village / Locality</label>
+            <input type="text" id="loc-review-village" placeholder="Village name">
+          </div>
+          <div class="form-group">
+            <label for="loc-review-source">Verification Source</label>
+            <select id="loc-review-source">
+              <option value="Admin Verified Update">Admin Verified Update</option>
+              <option value="Field Visit Collection">Field Visit Inspection</option>
+              <option value="Farmer Submitted">Farmer Verified Coordinates</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="loc-review-notes">Verification / Review Notes</label>
+          <input type="text" id="loc-review-notes" placeholder="e.g. Confirmed at farm gate during 15-day review">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-submit-review">
+          Verify & Reset 15-Day Cycle
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: FARMER FULL PROFILE DRAWER ==================== -->
+  <div id="farmer-profile-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-profile-wide">
+      <button class="modal-close-btn" onclick="closeFarmerProfileModal()">×</button>
+      
+      <div class="profile-hero">
+        <div class="profile-avatar-lg" id="fp-avatar">F</div>
+        <div class="profile-hero-text">
+          <h2 id="fp-name">Farmer Name</h2>
+          <div class="profile-hero-meta">
+            <span class="badge-code" id="fp-id">FAR-1001</span>
+            <span id="fp-contact">Phone: —</span>
+            <span id="fp-village">Village: —</span>
+            <span id="fp-loc-pill" class="badge-tag">Verified</span>
+          </div>
+        </div>
+        <div class="profile-hero-actions">
+          <button class="btn btn-outline btn-sm" onclick="openLocationReviewForFarmer(currentProfileFarmerId)">
+            <span>📍 Review Location</span>
           </button>
-          <button class="btn btn-outline btn-sm" onclick="downloadInvoicePDF()">
-            <span>📄 Download PDF</span>
+          <button class="btn btn-primary btn-sm" onclick="startCollectionForFarmer(currentProfileFarmerId)">
+            <span>🌸 Record Harvest</span>
           </button>
-          <button class="btn btn-whatsapp btn-sm" onclick="shareInvoiceWhatsApp()">
-            <span>💬 Share on WhatsApp</span>
-          </button>
-          <button class="modal-close" onclick="closeInvoiceModal()">×</button>
         </div>
       </div>
 
-      <!-- INVOICE DOCUMENT (PRINTABLE) -->
-      <div class="invoice-paper" id="invoice-printable-area">
-        <div class="invoice-header">
-          <div class="invoice-shop-info">
-            <div class="invoice-logo-title">
-              <svg viewBox="0 0 64 64" width="32" height="32" fill="none">
-                <path d="M32 8C32 8 26 22 26 34C26 40 28.5 46 32 48C35.5 46 38 40 38 34C38 22 32 8 32 8Z" fill="#E05375"/>
-                <path d="M32 20C24 24 16 32 18 42C19 47 24 49 28 47C31 43 32 38 32 20Z" fill="#F07C9A"/>
-                <path d="M32 20C40 24 48 32 46 42C45 47 40 49 36 47C33 43 32 38 32 20Z" fill="#F07C9A"/>
-                <path d="M22 52C26 55 30 56 32 56C34 56 38 55 42 52C40 58 32 60 32 60C32 60 24 58 22 52Z" fill="#15803D"/>
-              </svg>
-              <div>
-                <h2>Fresh Blooms</h2>
-                <p class="invoice-tagline">FLOWERS • BILLS • GROWTH</p>
-              </div>
-            </div>
-            <p class="invoice-address" id="inv-shop-address">125 Flower Street, Chennai - 600001</p>
-            <p class="invoice-contact" id="inv-shop-contact">PH: 98765 43210 | GSTIN: 33ABCDE1234F1Z5</p>
-          </div>
+      <!-- Tab Navigation -->
+      <div class="profile-tabs">
+        <button class="tab-btn active" onclick="switchProfileTab('collections', this)">Harvest Collections (<span id="fp-col-count">0</span>)</button>
+        <button class="tab-btn" onclick="switchProfileTab('locations', this)">15-Day Location History (<span id="fp-loc-count">0</span>)</button>
+        <button class="tab-btn" onclick="switchProfileTab('audit', this)">Farmer Audit Trail (<span id="fp-audit-count">0</span>)</button>
+      </div>
 
-          <div class="invoice-meta-box">
-            <div class="tax-invoice-badge">TAX INVOICE</div>
-            <div class="meta-line"><span>Invoice No:</span> <strong id="inv-doc-no">FB001567</strong></div>
-            <div class="meta-line"><span>Date & Time:</span> <span id="inv-doc-date">16-10-2026 11:45 AM</span></div>
-            <div class="meta-line"><span>Customer Name:</span> <strong id="inv-doc-cust-name">Sree Flowers</strong></div>
-            <div class="meta-line"><span>Mobile:</span> <span id="inv-doc-cust-mobile">9876543210</span></div>
-            <div class="meta-line"><span>Category:</span> <span id="inv-doc-cust-cat">Wholesale</span></div>
-          </div>
+      <!-- Tab Content: Collections -->
+      <div id="fp-tab-collections" class="tab-content">
+        <div class="table-responsive">
+          <table class="table mini-table">
+            <thead>
+              <tr>
+                <th>Collection ID</th>
+                <th>Date</th>
+                <th>Flower</th>
+                <th>Quantity</th>
+                <th>Rate</th>
+                <th>Total (₹)</th>
+                <th>Payment</th>
+              </tr>
+            </thead>
+            <tbody id="fp-collections-tbody"></tbody>
+          </table>
         </div>
+      </div>
 
-        <table class="invoice-items-table">
-          <thead>
-            <tr>
-              <th style="width: 8%">No</th>
-              <th style="width: 32%">Flower Type</th>
-              <th style="width: 25%">Variety</th>
-              <th style="width: 12%">Weight</th>
-              <th style="width: 11%">Rate (₹/kg)</th>
-              <th style="width: 12%">Amount (₹)</th>
-            </tr>
-          </thead>
-          <tbody id="inv-doc-items-tbody">
-            <!-- Dynamic items -->
-          </tbody>
-        </table>
-
-        <div class="invoice-summary-section">
-          <div class="invoice-payment-details">
-            <div class="pay-detail-row"><span>Payment Method:</span> <strong id="inv-doc-pay-method">Cash</strong></div>
-            <div class="pay-detail-row"><span>Amount Received:</span> <strong id="inv-doc-received">₹3,010</strong></div>
-            <div class="pay-detail-row"><span>Balance Due:</span> <strong id="inv-doc-balance" class="text-rose">₹0</strong></div>
-            <div class="pay-detail-row"><span>Billed By:</span> <span id="inv-doc-staff">Karthik Raja (Cashier)</span></div>
-          </div>
-
-          <div class="invoice-totals-breakdown">
-            <div class="total-row-item">
-              <span>Subtotal:</span>
-              <span id="inv-doc-subtotal">3,110</span>
-            </div>
-            <div class="total-row-item" id="inv-doc-discount-row">
-              <span>Discount:</span>
-              <span id="inv-doc-discount">100</span>
-            </div>
-            <div class="total-row-item" id="inv-doc-charges-row">
-              <span>Additional Charges:</span>
-              <span id="inv-doc-charges">0</span>
-            </div>
-            <div class="total-row-item grand-total">
-              <span>Total Amount:</span>
-              <span id="inv-doc-total">₹3,010</span>
-            </div>
-          </div>
+      <!-- Tab Content: 15-Day Location History -->
+      <div id="fp-tab-locations" class="tab-content hidden">
+        <div class="table-responsive">
+          <table class="table mini-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>GPS Coordinates</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Verified By</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="fp-locations-tbody"></tbody>
+          </table>
         </div>
+      </div>
 
-        <div class="invoice-footer-section">
-          <div class="invoice-notes">
-            <p><strong>Notes:</strong> <span id="inv-doc-notes">Thank you for your business!</span></p>
-            <p class="floral-blessing">Fresh Flowers • Happy Customers • Better Business</p>
-          </div>
-          <div class="invoice-signature-box">
-            <div class="signature-line"></div>
-            <span>Authorized Signature</span>
-          </div>
+      <!-- Tab Content: Audit Events -->
+      <div id="fp-tab-audit" class="tab-content hidden">
+        <div class="table-responsive">
+          <table class="table mini-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Administrator</th>
+                <th>Action</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="fp-audit-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ==================== NEW CUSTOMER MODAL ==================== -->
-  <div id="new-customer-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <button class="modal-close" onclick="closeNewCustomerModal()">×</button>
-      <h3>Add New Customer</h3>
-      <form id="new-customer-form" onsubmit="handleCreateCustomer(event)">
-        <div class="form-group">
-          <label for="new-cust-name">Customer Name *</label>
-          <input type="text" id="new-cust-name" placeholder="e.g. Meenakshi Garlands" required>
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="new-cust-mobile">Mobile Number *</label>
-            <input type="tel" id="new-cust-mobile" placeholder="e.g. 9876543210" required>
-          </div>
-          <div class="form-group">
-            <label for="new-cust-cat">Category *</label>
-            <select id="new-cust-cat">
-              <option value="Retail">Retail</option>
-              <option value="Wholesale">Wholesale</option>
-              <option value="Event Planner">Event Planner</option>
-              <option value="Regular Buyer">Regular Buyer</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="new-cust-shop">Shop / Business Name (Optional)</label>
-          <input type="text" id="new-cust-shop" placeholder="e.g. Royal Wedding Decorators">
-        </div>
-        <div class="form-group">
-          <label for="new-cust-address">Address</label>
-          <input type="text" id="new-cust-address" placeholder="e.g. Market Road, Chennai">
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Save Customer</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ==================== SETTLE CREDIT BALANCE MODAL ==================== -->
-  <div id="settle-credit-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <button class="modal-close" onclick="closeSettleCreditModal()">×</button>
-      <h3>Settle Customer Balance</h3>
-      <p class="subtitle" id="settle-customer-title">Customer: Sree Flowers</p>
-      <form id="settle-credit-form" onsubmit="handleSettleCredit(event)">
-        <div class="outstanding-notice">
-          <span>Current Outstanding Balance:</span>
-          <strong id="settle-outstanding-amt" class="text-rose">₹2,000</strong>
-        </div>
-        <div class="form-group">
-          <label for="settle-amount">Payment Amount (₹) *</label>
-          <input type="number" id="settle-amount" min="1" step="1" required>
-        </div>
-        <div class="form-group">
-          <label for="settle-method">Payment Method *</label>
-          <select id="settle-method">
-            <option value="Cash">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="Card">Card</option>
-            <option value="Bank Transfer">Bank Transfer</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="settle-notes">Notes</label>
-          <input type="text" id="settle-notes" placeholder="e.g. Weekly settlement via GPay">
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Record Payment & Update Ledger</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ==================== ADD STOCK MODAL ==================== -->
-  <div id="add-stock-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <button class="modal-close" onclick="closeAddStockModal()">×</button>
-      <h3>Inward Stock Purchase</h3>
-      <p class="subtitle">Record incoming flower harvest from farms or suppliers</p>
-      <form id="add-stock-form" onsubmit="handleAddStock(event)">
-        <div class="form-group">
-          <label for="stock-flower-id">Select Flower *</label>
-          <select id="stock-flower-id" required onchange="onStockFlowerSelect(this.value)"></select>
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="stock-weight">Weight (kg) *</label>
-            <input type="number" id="stock-weight" min="0.1" step="0.1" placeholder="e.g. 50" required>
-          </div>
-          <div class="form-group">
-            <label for="stock-rate">Purchase Cost / kg (₹) *</label>
-            <input type="number" id="stock-rate" min="1" step="1" placeholder="e.g. 320" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="stock-supplier">Supplier / Farm Name *</label>
-          <input type="text" id="stock-supplier" placeholder="e.g. Green Farm Hosur" required>
-        </div>
-        <div class="form-group">
-          <label for="stock-notes">Batch Notes</label>
-          <input type="text" id="stock-notes" placeholder="e.g. Fresh morning harvest batch">
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Add to Available Stock</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ==================== RECORD WASTAGE MODAL ==================== -->
-  <div id="wastage-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <button class="modal-close" onclick="closeWastageModal()">×</button>
-      <h3>Record Flower Wastage / Damage</h3>
-      <p class="subtitle">Track wilted, damaged, or unsellable stock</p>
-      <form id="wastage-form" onsubmit="handleRecordWastage(event)">
-        <div class="form-group">
-          <label for="waste-flower-id">Select Flower *</label>
-          <select id="waste-flower-id" required></select>
-        </div>
-        <div class="form-group">
-          <label for="waste-weight">Damaged Weight (kg) *</label>
-          <input type="number" id="waste-weight" min="0.1" step="0.1" placeholder="e.g. 2.5" required>
-        </div>
-        <div class="form-group">
-          <label for="waste-reason">Reason *</label>
-          <select id="waste-reason">
-            <option value="Wilted due to heat / transit">Wilted due to heat / transit</option>
-            <option value="Damaged petals during transport">Damaged petals during transport</option>
-            <option value="Unsold opening stock expired">Unsold opening stock expired</option>
-            <option value="Rain / moisture spoilage">Rain / moisture spoilage</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn-rose btn-block">Deduct Wasted Stock</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ==================== NEW FLOWER VARIETY MODAL ==================== -->
-  <div id="new-flower-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <button class="modal-close" onclick="closeNewFlowerModal()">×</button>
-      <h3>Add Flower Variety</h3>
-      <form id="new-flower-form" onsubmit="handleCreateFlower(event)">
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="new-flower-name">Flower Type *</label>
-            <input type="text" id="new-flower-name" placeholder="e.g. Jasmine, Rose, Marigold" required>
-          </div>
-          <div class="form-group">
-            <label for="new-flower-variety">Variety *</label>
-            <input type="text" id="new-flower-variety" placeholder="e.g. Mogra, Red, Yellow" required>
-          </div>
-        </div>
-        <div class="form-row-3">
-          <div class="form-group">
-            <label for="new-flower-stock">Initial Stock (kg)</label>
-            <input type="number" id="new-flower-stock" min="0" step="0.1" value="10">
-          </div>
-          <div class="form-group">
-            <label for="new-flower-min">Min Stock Alert</label>
-            <input type="number" id="new-flower-min" min="1" step="1" value="5">
-          </div>
-          <div class="form-group">
-            <label for="new-flower-unit">Unit</label>
-            <select id="new-flower-unit">
-              <option value="kg">kg</option>
-              <option value="piece">piece</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="new-flower-sell">Selling Rate (₹/kg) *</label>
-            <input type="number" id="new-flower-sell" min="1" step="1" placeholder="400" required>
-          </div>
-          <div class="form-group">
-            <label for="new-flower-cost">Purchase Cost (₹/kg) *</label>
-            <input type="number" id="new-flower-cost" min="1" step="1" placeholder="300" required>
-          </div>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Save Flower Variety</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- ==================== NEW STAFF MODAL ==================== -->
-  <div id="new-staff-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <button class="modal-close" onclick="closeNewStaffModal()">×</button>
-      <h3>Add Staff Member</h3>
-      <form id="new-staff-form" onsubmit="handleCreateStaff(event)">
-        <div class="form-group">
-          <label for="staff-name">Full Name *</label>
-          <input type="text" id="staff-name" placeholder="e.g. Rajesh Kumar" required>
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="staff-username">Username *</label>
-            <input type="text" id="staff-username" placeholder="rajesh" required>
-          </div>
-          <div class="form-group">
-            <label for="staff-mobile">Mobile Number *</label>
-            <input type="tel" id="staff-mobile" placeholder="9876543210" required>
-          </div>
-        </div>
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="staff-role">Role *</label>
-            <select id="staff-role">
-              <option value="cashier">Billing Staff / Cashier</option>
-              <option value="manager">Manager</option>
-              <option value="stock_manager">Stock Manager</option>
-              <option value="admin">Admin / Owner</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="staff-pin">Quick 4-Digit PIN *</label>
-            <input type="text" id="staff-pin" maxlength="4" placeholder="5678" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="staff-password">Initial Password *</label>
-          <input type="password" id="staff-password" placeholder="••••••••" required>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Create Staff Account</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- APPLICATION SCRIPTS -->
+  <!-- APPLICATION CONTROLLER SCRIPT -->
   <script src="app.js"></script>
 </body>
 </html>

@@ -1,65 +1,179 @@
 /* =========================================================
-   FRESH BLOOMS - APPLICATION LOGIC & CONTROLLER
-   Flower Shop Billing & Customer Management System
+   FRESH BLOOMS - ENTERPRISE ADMIN CONTROLLER
+   Professional Admin Dashboard & Secure Farmer Management
    ========================================================= */
 
-// Global State
+// Global Application State
 const state = {
-  token: localStorage.getItem('fb_token') || null,
-  user: JSON.parse(localStorage.getItem('fb_user') || 'null'),
+  token: localStorage.getItem('fb_admin_token') || null,
+  user: JSON.parse(localStorage.getItem('fb_admin_user') || 'null'),
+  lang: localStorage.getItem('fb_lang') || 'en',
   currentView: 'dashboard',
-  customers: [],
-  flowers: [],
-  selectedCustomer: null,
-  currentInvoice: null,
-  dashboardData: null,
-  dashboardChart: null,
-  salesTrendChart: null,
-  flowerDistributionChart: null,
-  pinBuffer: ''
+  farmers: [],
+  villages: [],
+  dashboardStats: null,
+  mapInstance: null,
+  mapMarkers: [],
+  currentProfileFarmerId: null,
+  farmerPagination: { page: 1, limit: 15, total: 0 },
+  collectionPagination: { page: 1, limit: 15, total: 0 },
+  auditPagination: { page: 1, limit: 25, total: 0 },
+  syncInterval: null
 };
 
-// --- INITIALIZATION ---
+// Global reference for active profile modal
+let currentProfileFarmerId = null;
+
+// Bilingual English & Tamil Translation Dictionary
+const i18n = {
+  en: {
+    brand_tag: "Administrator Portal & Farmer Operations",
+    admin_sign_in: "Admin Sign In",
+    sign_in_sub: "Access the central farmer collection and management console",
+    username_label: "Username or Email",
+    password_label: "Password",
+    security_badge: "🛡️ Protected by brute-force rate limiting",
+    btn_sign_in: "Sign In to Admin Console",
+    nav_dashboard: "Dashboard",
+    nav_farmers: "Farmers",
+    nav_locations: "15-Day Locations",
+    nav_collections: "Flower Collections",
+    nav_reports: "Reports & Exports",
+    nav_audit: "Audit Trail",
+    nav_profile: "Admin Profile & Security",
+    super_admin_tag: "Super Admin",
+    live_sync: "Live Sync",
+    btn_refresh: "🔄 Refresh",
+    btn_register_farmer: "+ Register Farmer",
+    btn_record_collection: "🌸 + Record Harvest Collection",
+    stat_total_farmers: "Total Registered Farmers",
+    stat_total_collections: "Total Flower Collections",
+    stat_total_payout: "Total Farmer Payout",
+    stat_location_review: "15-Day Location Review",
+    verified: "Verified (<15d)",
+    due_soon: "Due Soon (<3d)",
+    overdue: "Overdue (>15d)",
+    unavailable: "Location Unavailable",
+    paid: "Paid",
+    pending: "Pending",
+    cancelled: "Cancelled",
+    flower_jasmine: "Jasmine (Mogra)",
+    flower_rose: "Rose",
+    flower_marigold: "Marigold",
+    flower_chrysanthemum: "Chrysanthemum",
+    flower_lotus: "Lotus",
+    flower_tuberose: "Tuberose",
+    flower_lily: "Lily"
+  },
+  ta: {
+    brand_tag: "நிர்வாகி தளம் & மலர் விவசாய பணிகள்",
+    admin_sign_in: "நிர்வாகி உள்நுழைவு",
+    sign_in_sub: "மலர் சேகரிப்பு மற்றும் விவசாய மேலாண்மை கட்டுப்பாட்டு அறை",
+    username_label: "பயனர் பெயர் அல்லது மின்னஞ்சல்",
+    password_label: "கடவுச்சொல்",
+    security_badge: "🛡️ பாதுகாப்பான கடவுச்சொல் மற்றும் அமர்வு பாதுகாப்பு",
+    btn_sign_in: "நிர்வாகி உள்நுழைய",
+    nav_dashboard: "கட்டுப்பாட்டு அறை",
+    nav_farmers: "விவசாயிகள் பதிவேடு",
+    nav_locations: "15-நாள் இருப்பிடங்கள்",
+    nav_collections: "மலர் வரவு சேகரிப்பு",
+    nav_reports: "அறிக்கைகள் & ஏற்றுமதி",
+    nav_audit: "தணிக்கை பதிவு",
+    nav_profile: "நிர்வாகி சுயவிவரம்",
+    super_admin_tag: "தலைமை நிர்வாகி",
+    live_sync: "நேரலை தரவு",
+    btn_refresh: "🔄 புதுப்பி",
+    btn_register_farmer: "+ விவசாயி பதிவு",
+    btn_record_collection: "🌸 + மலர் சேகரிப்பு பதிவு",
+    stat_total_farmers: "பதிவுசெய்த விவசாயிகள்",
+    stat_total_collections: "மொத்த மலர் சேகரிப்புகள்",
+    stat_total_payout: "மொத்த பட்டுவாடா தொகை",
+    stat_location_review: "15-நாள் இருப்பிட மதிப்பாய்வு",
+    verified: "சரிபார்க்கப்பட்டது (<15 நாள்)",
+    due_soon: "விரைவில் மதிப்பாய்வு (<3 நாள்)",
+    overdue: "மதிப்பாய்வு தாமதமானது (>15 நாள்)",
+    unavailable: "இருப்பிடம் இல்லை",
+    paid: "வழங்கப்பட்டது",
+    pending: "நிலுவையில் உள்ளது",
+    cancelled: "ரத்து செய்யப்பட்டது",
+    flower_jasmine: "மல்லிகை (மொட்டு)",
+    flower_rose: "ரோஜா",
+    flower_marigold: "சாமந்தி",
+    flower_chrysanthemum: "செவ்வந்தி",
+    flower_lotus: "தாமரை",
+    flower_tuberose: "சம்பங்கி",
+    flower_lily: "அல்லி"
+  }
+};
+
+function t(key, fallback = '') {
+  const dict = i18n[state.lang] || i18n.en;
+  return dict[key] !== undefined ? dict[key] : (fallback || key);
+}
+
+function setLanguage(lang) {
+  state.lang = lang;
+  localStorage.setItem('fb_lang', lang);
+
+  // Update pills active status
+  ['login-lang-en', 'nav-lang-en'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (lang === 'en') el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+  ['login-lang-ta', 'nav-lang-ta'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (lang === 'ta') el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+
+  // Apply translations to all DOM elements with data-i18n
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const trans = t(key);
+    if (trans) el.textContent = trans;
+  });
+
+  // Refresh current view table data to apply Tamil/English badges
+  if (state.token) {
+    loadCurrentViewData();
+  }
+}
+
+// Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
-  initApp();
-  setInterval(updateLiveDateTime, 1000);
+  setLanguage(state.lang);
+  initAdminApp();
 });
 
-function initApp() {
+function initAdminApp() {
   if (state.token && state.user) {
     showWorkspace();
-    setupUserInterface();
-    fetchInitialData();
+    setupAdminInterface();
+    loadCurrentViewData();
+    startLiveSync();
   } else {
     showLogin();
   }
 }
 
-function updateLiveDateTime() {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  
-  const navDate = document.getElementById('nav-current-date');
-  if (navDate) navDate.textContent = now.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-
-  const billDateTime = document.getElementById('live-bill-datetime');
-  if (billDateTime) billDateTime.textContent = `${dateStr} | ${timeStr}`;
-
-  const dashDate = document.getElementById('dashboard-date-str');
-  if (dashDate) dashDate.textContent = now.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-// --- AUTHENTICATION & LOGIN ---
-const loginForm = document.getElementById('login-form');
+// =========================================================
+// 1. AUTHENTICATION & SESSION
+// =========================================================
+const loginForm = document.getElementById('admin-login-form');
 if (loginForm) {
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
-    const btn = document.getElementById('btn-submit-login');
+    const btn = document.getElementById('btn-login-submit');
+
     btn.disabled = true;
-    btn.textContent = 'Verifying...';
+    btn.innerHTML = `<span>Verifying credentials...</span>`;
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -68,19 +182,28 @@ if (loginForm) {
         body: JSON.stringify({ username, password })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
+      if (!res.ok) throw new Error(data.error || 'Login failed.');
 
-      onLoginSuccess(data);
+      state.token = data.token;
+      state.user = data.user;
+      localStorage.setItem('fb_admin_token', data.token);
+      localStorage.setItem('fb_admin_user', JSON.stringify(data.user));
+
+      showToast(`Welcome, ${data.user.full_name}! Administrator session active.`, 'success');
+      showWorkspace();
+      setupAdminInterface();
+      loadCurrentViewData();
+      startLiveSync();
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.innerHTML = `<span>Login to Dashboard</span> <span class="arrow">→</span>`;
+      btn.innerHTML = `<span>Sign In to Admin Console</span> <span class="btn-arrow">→</span>`;
     }
   });
 }
 
-// Password toggle
+// Password Visibility Toggle
 const btnTogglePw = document.getElementById('btn-toggle-pw');
 if (btnTogglePw) {
   btnTogglePw.addEventListener('click', () => {
@@ -95,131 +218,10 @@ if (btnTogglePw) {
   });
 }
 
-function quickFillLogin(username, password) {
-  document.getElementById('login-username').value = username;
-  document.getElementById('login-password').value = password;
-  
-  // Update pill active style
-  document.querySelectorAll('.demo-pill').forEach(p => p.classList.remove('active'));
-  if (event && event.currentTarget) event.currentTarget.classList.add('active');
-  
-  // Submit immediately for effortless demo
-  loginForm.dispatchEvent(new Event('submit'));
-}
-
-function onLoginSuccess(data) {
-  state.token = data.token;
-  state.user = data.user;
-  localStorage.setItem('fb_token', data.token);
-  localStorage.setItem('fb_user', JSON.stringify(data.user));
-
-  showToast(`Welcome, ${data.user.name}! (${data.user.role})`, 'success');
-  showWorkspace();
-  setupUserInterface();
-  fetchInitialData();
-  closePinModal();
-}
-
-function logout() {
-  state.token = null;
-  state.user = null;
-  localStorage.removeItem('fb_token');
-  localStorage.removeItem('fb_user');
-  showLogin();
-  showToast('Logged out successfully', 'info');
-}
-
-// Switch Role from Top Navigation (For fast demo evaluation)
-async function switchRole(newRole) {
-  const roleAccounts = {
-    admin: { user: 'admin', pw: 'admin123' },
-    manager: { user: 'manager', pw: 'admin123' },
-    cashier: { user: 'cashier', pw: 'admin123' },
-    stock_manager: { user: 'stockmgr', pw: 'admin123' }
-  };
-  const target = roleAccounts[newRole];
-  if (!target) return;
-
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: target.user, password: target.pw })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    onLoginSuccess(data);
-  } catch (err) {
-    showToast('Failed to switch role: ' + err.message, 'error');
-  }
-}
-
-// Staff PIN login
-document.getElementById('btn-open-pin-login').addEventListener('click', () => {
-  state.pinBuffer = '';
-  updatePinDots();
-  document.getElementById('pin-login-modal').classList.remove('hidden');
-});
-
-function closePinModal() {
-  document.getElementById('pin-login-modal').classList.add('hidden');
-  state.pinBuffer = '';
-}
-
-function pressPin(digit) {
-  if (state.pinBuffer.length < 4) {
-    state.pinBuffer += digit;
-    updatePinDots();
-    if (state.pinBuffer.length === 4) {
-      submitPinLogin(state.pinBuffer);
-    }
-  }
-}
-
-function clearPin() {
-  state.pinBuffer = '';
-  updatePinDots();
-}
-
-function backspacePin() {
-  if (state.pinBuffer.length > 0) {
-    state.pinBuffer = state.pinBuffer.slice(0, -1);
-    updatePinDots();
-  }
-}
-
-function updatePinDots() {
-  for (let i = 0; i < 4; i++) {
-    const dot = document.getElementById(`dot-0`.replace('0', i));
-    if (dot) {
-      if (i < state.pinBuffer.length) dot.classList.add('filled');
-      else dot.classList.remove('filled');
-    }
-  }
-}
-
-async function submitPinLogin(pin) {
-  try {
-    const res = await fetch('/api/auth/pin-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Invalid PIN');
-
-    onLoginSuccess(data);
-  } catch (err) {
-    showToast(err.message, 'error');
-    clearPin();
-  }
-}
-
-// --- WORKSPACE & ROLE PERMISSIONS ---
 function showLogin() {
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('app-workspace').classList.add('hidden');
+  if (state.syncInterval) clearInterval(state.syncInterval);
 }
 
 function showWorkspace() {
@@ -227,1002 +229,392 @@ function showWorkspace() {
   document.getElementById('app-workspace').classList.remove('hidden');
 }
 
-function setupUserInterface() {
+function setupAdminInterface() {
   if (!state.user) return;
+  document.getElementById('sidebar-admin-name').textContent = state.user.full_name;
+  document.getElementById('sidebar-admin-avatar').textContent = (state.user.full_name || 'A').charAt(0).toUpperCase();
 
-  // Sidebar profile
-  document.getElementById('sidebar-user-name').textContent = state.user.name;
-  document.getElementById('sidebar-user-avatar').textContent = state.user.name.charAt(0).toUpperCase();
-  document.getElementById('sidebar-user-role').textContent = state.user.role.replace('_', ' ');
+  // Profile view details
+  const profName = document.getElementById('profile-full-name');
+  if (profName) profName.textContent = state.user.full_name;
+  const profUser = document.getElementById('profile-username');
+  if (profUser) profUser.textContent = state.user.username;
+  const profEmail = document.getElementById('profile-email');
+  if (profEmail) profEmail.textContent = state.user.email || '—';
+  const profLastLogin = document.getElementById('profile-last-login');
+  if (profLastLogin) profLastLogin.textContent = state.user.last_login_at ? formatDate(state.user.last_login_at) : 'First login';
+}
 
-  // Dropdown selector sync
-  const roleSelect = document.getElementById('active-role-selector');
-  if (roleSelect) roleSelect.value = state.user.role;
+async function handleLogout() {
+  try {
+    await authFetch('/api/auth/logout', { method: 'POST' });
+  } catch (e) {
+    // Continue client cleanup even if request fails
+  }
+  state.token = null;
+  state.user = null;
+  localStorage.removeItem('fb_admin_token');
+  localStorage.removeItem('fb_admin_user');
+  showLogin();
+  showToast('Administrator signed out securely.', 'info');
+}
 
-  // Role permissions enforcement
-  const role = state.user.role;
-  const adminElements = document.querySelectorAll('.admin-only');
+// Change Admin Password
+async function handleChangePassword(e) {
+  e.preventDefault();
+  const currentPassword = document.getElementById('pw-current').value;
+  const newPassword = document.getElementById('pw-new').value;
+  const confirmPassword = document.getElementById('pw-confirm').value;
 
-  if (role === 'admin') {
-    adminElements.forEach(el => el.classList.remove('hidden'));
-    document.getElementById('nav-new-bill').classList.remove('hidden');
-  } else if (role === 'manager') {
-    adminElements.forEach(el => el.classList.add('hidden'));
-    document.getElementById('nav-staff').classList.remove('hidden'); // Managers can see staff
-    document.getElementById('nav-new-bill').classList.remove('hidden');
-  } else if (role === 'cashier') {
-    adminElements.forEach(el => el.classList.add('hidden'));
-    document.getElementById('nav-new-bill').classList.remove('hidden');
-    // Cashier cannot view reports
-    document.getElementById('nav-reports').classList.add('hidden');
-  } else if (role === 'stock_manager') {
-    adminElements.forEach(el => el.classList.add('hidden'));
-    // Stock manager cannot generate bills or see reports
-    document.getElementById('nav-new-bill').classList.add('hidden');
-    document.getElementById('nav-reports').classList.add('hidden');
+  if (newPassword !== confirmPassword) {
+    showToast('New passwords do not match.', 'warn');
+    return;
+  }
+  if (newPassword.length < 8) {
+    showToast('Password must be at least 8 characters.', 'warn');
+    return;
   }
 
-  // If currently on a forbidden view, redirect to dashboard or inventory
-  if (role === 'stock_manager' && (state.currentView === 'new-bill' || state.currentView === 'reports')) {
-    navigateTo('inventory');
-  } else {
-    navigateTo(state.currentView || 'dashboard');
+  const btn = document.getElementById('btn-change-pw');
+  btn.disabled = true;
+
+  try {
+    const res = await authFetch('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast('Administrator password updated successfully.', 'success');
+    document.getElementById('change-password-form').reset();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
   }
 }
 
-// Navigation Router
-function navigateTo(viewId) {
-  // Permission guard
-  if (state.user && state.user.role === 'stock_manager' && (viewId === 'new-bill' || viewId === 'reports')) {
-    showToast('Access denied: Stock Managers cannot access billing or financial reports', 'warn');
-    return;
-  }
-  if (state.user && state.user.role === 'cashier' && (viewId === 'reports' || viewId === 'staff' || viewId === 'settings')) {
-    showToast('Access denied: Cashiers cannot access owner reports or settings', 'warn');
-    return;
-  }
+// Background Live Sync (Every 30 seconds)
+function startLiveSync() {
+  if (state.syncInterval) clearInterval(state.syncInterval);
+  state.syncInterval = setInterval(() => {
+    if (state.currentView === 'dashboard') fetchDashboardStats(false);
+  }, 30000);
+}
 
+// =========================================================
+// 2. NAVIGATION & ROUTING
+// =========================================================
+function navigateTo(viewId) {
   state.currentView = viewId;
 
-  // Update sidebar active buttons
+  // Sidebar buttons active state
   document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
     if (item.dataset.view === viewId) item.classList.add('active');
     else item.classList.remove('active');
   });
 
-  // Toggle view containers
+  // App views visibility
   document.querySelectorAll('.app-view').forEach(view => {
     if (view.id === `view-${viewId}`) view.classList.remove('hidden');
     else view.classList.add('hidden');
   });
 
-  // Close mobile sidebar if open
-  document.querySelector('.sidebar').classList.remove('mobile-open');
+  // Mobile sidebar close
+  document.getElementById('app-sidebar').classList.remove('mobile-open');
 
-  // Trigger view data refreshes
-  if (viewId === 'dashboard') fetchDashboardData();
-  else if (viewId === 'new-bill') initNewBillForm();
-  else if (viewId === 'customers') fetchCustomers();
-  else if (viewId === 'inventory') { fetchFlowers(); fetchStockMovements(); }
-  else if (viewId === 'payments') fetchPayments();
-  else if (viewId === 'reports') fetchReportsSummary();
-  else if (viewId === 'staff') fetchStaffList();
-  else if (viewId === 'settings') fetchSettings();
-  else if (viewId === 'audit') fetchAuditLogs();
+  loadCurrentViewData();
 }
 
 function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('mobile-open');
+  document.getElementById('app-sidebar').classList.toggle('mobile-open');
 }
 
-// Global Search
+function refreshCurrentView() {
+  loadCurrentViewData();
+  showToast('Data refreshed from database.', 'info');
+}
+
+function loadCurrentViewData() {
+  const v = state.currentView;
+  if (v === 'dashboard') fetchDashboardStats(true);
+  else if (v === 'farmers') fetchFarmersList();
+  else if (v === 'locations') initLocationsMapView();
+  else if (v === 'collections') fetchCollectionsList();
+  else if (v === 'reports') fetchReportsData();
+  else if (v === 'audit') fetchAuditLogs();
+  else if (v === 'profile') setupAdminInterface();
+}
+
+// Global Quick Search
 function handleGlobalSearch(term) {
   if (!term || term.trim() === '') return;
-  term = term.toLowerCase().trim();
-
-  // If searching on customers page, filter customer list
-  if (state.currentView === 'customers') {
-    filterCustomerTable(term);
-  } else if (state.currentView === 'inventory') {
-    // Filter inventory rows
-    document.querySelectorAll('#inventory-tbody tr').forEach(row => {
-      const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(term) ? '' : 'none';
-    });
-  } else {
-    // Jump to customers with search
-    navigateTo('customers');
-    document.getElementById('customer-table-search').value = term;
-    filterCustomerTable(term);
+  term = term.trim();
+  if (state.currentView !== 'farmers') {
+    navigateTo('farmers');
+  }
+  const searchInput = document.getElementById('farmer-search-input');
+  if (searchInput) {
+    searchInput.value = term;
+    fetchFarmersList();
   }
 }
 
-// --- FETCH INITIAL APPLICATION DATA ---
-async function fetchInitialData() {
-  await Promise.all([
-    fetchDashboardData(),
-    fetchFlowers(),
-    fetchCustomers()
-  ]);
-}
-
 // =========================================================
-// 1. DASHBOARD CONTROLLER & CHARTS
+// 3. DASHBOARD (REAL DATABASE METRICS ONLY)
 // =========================================================
-async function fetchDashboardData() {
+async function fetchDashboardStats(showLoader = true) {
   try {
-    const res = await authFetch('/api/dashboard/summary');
-    if (!res.ok) return;
-    const data = await res.json();
-    state.dashboardData = data;
-
-    // Update KPI Cards
-    document.getElementById('kpi-sales').textContent = `₹${data.todaySales.toLocaleString('en-IN')}`;
-    document.getElementById('kpi-bills').textContent = data.totalBills;
-    document.getElementById('kpi-cash').textContent = `₹${data.todayCash.toLocaleString('en-IN')}`;
-    document.getElementById('kpi-upi').textContent = `₹${data.todayUpi.toLocaleString('en-IN')}`;
-    document.getElementById('kpi-credit').textContent = `₹${data.todayCredit.toLocaleString('en-IN')}`;
-    document.getElementById('kpi-debt').textContent = `₹${data.outstandingBalance.toLocaleString('en-IN')}`;
-    document.getElementById('kpi-debt-customers').textContent = `${data.customersWithDebt} customers`;
-    document.getElementById('kpi-weight').textContent = `${data.flowersSoldWeight} kg`;
-    document.getElementById('kpi-stock-val').textContent = `₹${data.stockValue.toLocaleString('en-IN')}`;
-
-    // Render Chart
-    renderSalesOverviewChart(data.recentDays);
-
-    // Render Top Selling Flowers list
-    renderTopSellingFlowers(data.topSellingFlowers);
-
-    // Render Best Customers leaderboard
-    renderBestCustomers(data.bestCustomers);
-
-  } catch (err) {
-    console.error('Error fetching dashboard:', err);
-  }
-}
-
-function renderSalesOverviewChart(recentDays) {
-  const ctx = document.getElementById('salesOverviewChart');
-  if (!ctx) return;
-
-  const labels = recentDays.map(d => d.label);
-  const salesData = recentDays.map(d => d.sales);
-
-  if (state.dashboardChart) {
-    state.dashboardChart.destroy();
-  }
-
-  state.dashboardChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Daily Sales (₹)',
-        data: salesData,
-        backgroundColor: '#15803D',
-        borderRadius: 6,
-        hoverBackgroundColor: '#166534',
-        barThickness: 28
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => ` Sales: ₹${ctx.parsed.y.toLocaleString('en-IN')}`
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: '#F1F5F9' },
-          ticks: {
-            callback: (val) => `₹${val >= 1000 ? (val / 1000) + 'k' : val}`
-          }
-        },
-        x: {
-          grid: { display: false }
-        }
-      }
-    }
-  });
-}
-
-function setDashboardChartFilter(type, btn) {
-  document.querySelectorAll('.pill-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  if (!state.dashboardData || !state.dashboardChart) return;
-
-  if (type === 'daily') {
-    renderSalesOverviewChart(state.dashboardData.recentDays);
-  } else if (type === 'weekly') {
-    const weeklyData = [
-      { label: 'Week 1', sales: 110400 },
-      { label: 'Week 2', sales: 135800 },
-      { label: 'Week 3', sales: 154200 },
-      { label: 'This Week', sales: 168900 }
-    ];
-    renderSalesOverviewChart(weeklyData);
-  } else if (type === 'monthly') {
-    const monthlyData = [
-      { label: 'May', sales: 420000 },
-      { label: 'Jun', sales: 465000 },
-      { label: 'Jul', sales: 510000 },
-      { label: 'Aug', sales: 590000 },
-      { label: 'Sep', sales: 640000 },
-      { label: 'Oct', sales: 710000 }
-    ];
-    renderSalesOverviewChart(monthlyData);
-  }
-}
-
-function renderTopSellingFlowers(flowers) {
-  const container = document.getElementById('dashboard-top-flowers');
-  if (!container) return;
-
-  const flowerColors = {
-    'Jasmine': '#E05375',
-    'Rose': '#E11D48',
-    'Marigold': '#D97706',
-    'Chrysanthemum': '#059669',
-    'Lotus': '#EC4899',
-    'Tuberose': '#8B5CF6',
-    'Lily': '#3B82F6'
-  };
-
-  container.innerHTML = flowers.map(f => `
-    <div class="top-list-item">
-      <div class="item-left">
-        <span class="flower-dot" style="background: ${flowerColors[f.flower_name] || '#15803D'}"></span>
-        <div>
-          <div class="item-name">${f.flower_name}</div>
-          <div class="item-sub">Revenue: ₹${Math.round(f.total_amount).toLocaleString('en-IN')}</div>
-        </div>
-      </div>
-      <div class="item-value">${f.total_weight} kg</div>
-    </div>
-  `).join('');
-}
-
-function renderBestCustomers(customers) {
-  const container = document.getElementById('dashboard-best-customers');
-  if (!container) return;
-
-  container.innerHTML = customers.map(c => `
-    <div class="top-list-item" style="cursor: pointer" onclick="viewCustomerDetail('${c.id}')">
-      <div class="item-left">
-        <div class="user-avatar" style="width: 28px; height: 28px; font-size: 0.75rem;">${c.name.charAt(0)}</div>
-        <div>
-          <div class="item-name">${c.name}</div>
-          <div class="item-sub">${c.category}</div>
-        </div>
-      </div>
-      <div class="item-value text-green">₹${c.total_purchased.toLocaleString('en-IN')}</div>
-    </div>
-  `).join('');
-}
-
-// =========================================================
-// 2. BILLING & NEW BILL SYSTEM
-// =========================================================
-function initNewBillForm() {
-  // Generate next expected invoice number preview
-  updateLiveDateTime();
-  fetchLiveInvoiceNumber();
-
-  // If table is empty, add 3 default rows matching screenshot
-  const tbody = document.getElementById('bill-items-tbody');
-  if (tbody.children.length === 0) {
-    addBillingItemRow('Jasmine', 'Mogra', 5.0, 400);
-    addBillingItemRow('Rose', 'Red Rose', 3.0, 250);
-    addBillingItemRow('Marigold', 'Local Yellow', 2.0, 180);
-  }
-  recalculateBillTotals();
-}
-
-async function fetchLiveInvoiceNumber() {
-  try {
-    const res = await authFetch('/api/settings');
-    if (res.ok) {
-      const settings = await res.json();
-      const prefix = settings.invoice_prefix || 'FB';
-      const nextNum = settings.next_invoice_num || '1568';
-      const invNo = `${prefix}${String(nextNum).padStart(6, '0')}`;
-      const elem = document.getElementById('live-invoice-no');
-      if (elem) elem.textContent = invNo;
-    }
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-// Dynamic Billing Item Row
-function addBillingItemRow(defaultName = '', defaultVariety = '', defaultWeight = 1, defaultRate = 0) {
-  const tbody = document.getElementById('bill-items-tbody');
-  const rowId = `item-row-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
-  const tr = document.createElement('tr');
-  tr.id = rowId;
-
-  // Build flower select options
-  const flowerOptions = state.flowers.map(f => `
-    <option value="${f.id}" data-name="${f.name}" data-variety="${f.variety}" data-rate="${f.selling_rate}" data-stock="${f.available_stock}" ${f.name === defaultName ? 'selected' : ''}>
-      ${f.name} (${f.variety}) - Avail: ${f.available_stock}kg
-    </option>
-  `).join('');
-
-  tr.innerHTML = `
-    <td>
-      <select class="item-flower-select" onchange="onRowFlowerSelect('${rowId}', this)">
-        <option value="">-- Choose Flower --</option>
-        ${flowerOptions}
-      </select>
-    </td>
-    <td>
-      <input type="text" class="item-variety" value="${defaultVariety}" placeholder="Variety">
-    </td>
-    <td>
-      <div style="display: flex; gap: 4px; align-items: center;">
-        <input type="number" class="item-weight" value="${defaultWeight}" min="0.01" step="0.1" oninput="onRowWeightOrRateChange('${rowId}')" style="width: 80px;">
-        <span style="font-size: 0.8rem; color: #64748B;">kg</span>
-      </div>
-    </td>
-    <td>
-      <div style="display: flex; gap: 4px; align-items: center;">
-        <span style="font-size: 0.85rem; color: #64748B;">₹</span>
-        <input type="number" class="item-rate" value="${defaultRate || 400}" min="0" step="1" oninput="onRowWeightOrRateChange('${rowId}')" style="width: 85px;">
-      </div>
-    </td>
-    <td>
-      <strong class="item-amount" style="font-size: 0.95rem; color: #15803D;">₹0</strong>
-    </td>
-    <td>
-      <button type="button" class="btn-remove-row" onclick="removeBillingItemRow('${rowId}')" title="Remove">✕</button>
-    </td>
-  `;
-
-  tbody.appendChild(tr);
-
-  // If defaults provided, select matched flower
-  if (defaultName) {
-    const select = tr.querySelector('.item-flower-select');
-    const opt = Array.from(select.options).find(o => o.dataset.name === defaultName);
-    if (opt) {
-      select.value = opt.value;
-      if (!defaultRate) tr.querySelector('.item-rate').value = opt.dataset.rate;
-      if (!defaultVariety) tr.querySelector('.item-variety').value = opt.dataset.variety;
-    }
-  }
-
-  onRowWeightOrRateChange(rowId);
-}
-
-function removeBillingItemRow(rowId) {
-  const row = document.getElementById(rowId);
-  if (row) row.remove();
-  recalculateBillTotals();
-}
-
-function onRowFlowerSelect(rowId, selectElem) {
-  const tr = document.getElementById(rowId);
-  if (!tr) return;
-  const selectedOpt = selectElem.options[selectElem.selectedIndex];
-  if (selectedOpt && selectedOpt.value) {
-    tr.querySelector('.item-variety').value = selectedOpt.dataset.variety || '';
-    tr.querySelector('.item-rate').value = selectedOpt.dataset.rate || 0;
-    onRowWeightOrRateChange(rowId);
-  }
-}
-
-function onRowWeightOrRateChange(rowId) {
-  const tr = document.getElementById(rowId);
-  if (!tr) return;
-  const weight = parseFloat(tr.querySelector('.item-weight').value) || 0;
-  const rate = parseFloat(tr.querySelector('.item-rate').value) || 0;
-  const amount = Math.round(weight * rate * 100) / 100;
-
-  tr.querySelector('.item-amount').textContent = `₹${amount.toLocaleString('en-IN')}`;
-  recalculateBillTotals();
-}
-
-function recalculateBillTotals() {
-  const rows = document.querySelectorAll('#bill-items-tbody tr');
-  let subtotal = 0;
-
-  rows.forEach(tr => {
-    const weight = parseFloat(tr.querySelector('.item-weight')?.value) || 0;
-    const rate = parseFloat(tr.querySelector('.item-rate')?.value) || 0;
-    subtotal += (weight * rate);
-  });
-
-  const discount = Math.max(0, parseFloat(document.getElementById('bill-discount-input')?.value) || 0);
-  const addCharges = Math.max(0, parseFloat(document.getElementById('bill-charges-input')?.value) || 0);
-
-  const totalAmount = Math.max(0, Math.round((subtotal - discount + addCharges) * 100) / 100);
-
-  document.getElementById('bill-subtotal-display').textContent = `₹${subtotal.toLocaleString('en-IN')}`;
-  document.getElementById('bill-total-display').textContent = `₹${totalAmount.toLocaleString('en-IN')}`;
-  document.getElementById('btn-bill-total-badge').textContent = `₹${totalAmount.toLocaleString('en-IN')}`;
-
-  // If received input is untouched or matching, default to total
-  const receivedInput = document.getElementById('bill-received-input');
-  const selectedPayMethod = document.querySelector('input[name="payMethod"]:checked')?.value || 'Cash';
-
-  let received = parseFloat(receivedInput.value);
-  if (selectedPayMethod === 'Credit') {
-    // If credit, amount received is 0 by default
-    if (isNaN(received) || received === totalAmount) {
-      received = 0;
-      receivedInput.value = 0;
-    }
-  } else {
-    if (isNaN(received) || received === 0 || receivedInput.dataset.autoFilled === 'true') {
-      received = totalAmount;
-      receivedInput.value = totalAmount;
-      receivedInput.dataset.autoFilled = 'true';
-    }
-  }
-
-  const balanceDue = Math.max(0, Math.round((totalAmount - received) * 100) / 100);
-  const balDisplay = document.getElementById('bill-balance-display');
-  balDisplay.textContent = `₹${balanceDue.toLocaleString('en-IN')}`;
-  if (balanceDue > 0) {
-    balDisplay.className = 'text-rose';
-  } else {
-    balDisplay.className = 'balance-zero';
-  }
-}
-
-// Payment method chips
-function onPaymentMethodSelect(method) {
-  document.querySelectorAll('.pay-pill').forEach(pill => {
-    const radio = pill.querySelector('input');
-    if (radio.value === method) pill.classList.add('active');
-    else pill.classList.remove('active');
-  });
-
-  const receivedInput = document.getElementById('bill-received-input');
-  if (method === 'Credit') {
-    receivedInput.value = 0;
-    delete receivedInput.dataset.autoFilled;
-  } else {
-    delete receivedInput.dataset.autoFilled;
-  }
-  recalculateBillTotals();
-}
-
-// Autocomplete customer search in billing
-function onCustomerSearchInput(val) {
-  const dropdown = document.getElementById('customer-dropdown-results');
-  if (!val || val.trim().length === 0) {
-    dropdown.classList.add('hidden');
-    return;
-  }
-  const term = val.toLowerCase().trim();
-  const matched = state.customers.filter(c =>
-    c.name.toLowerCase().includes(term) ||
-    c.mobile.includes(term) ||
-    (c.shop_name && c.shop_name.toLowerCase().includes(term))
-  );
-
-  if (matched.length === 0) {
-    dropdown.innerHTML = `
-      <div class="dropdown-item" onclick="openNewCustomerModal('${val}')">
-        <span>+ Add "<strong>${val}</strong>" as New Customer</span>
-      </div>
-    `;
-  } else {
-    dropdown.innerHTML = matched.map(c => `
-      <div class="dropdown-item" onclick="selectBillingCustomer('${c.id}')">
-        <div>
-          <strong>${c.name}</strong> <span style="color: #64748B;">(${c.mobile})</span>
-          ${c.shop_name ? `<div style="font-size: 0.75rem; color: #94A3B8;">${c.shop_name}</div>` : ''}
-        </div>
-        <div style="text-align: right;">
-          <span class="badge-cat ${c.category.replace(/\s+/g, '')}">${c.category}</span>
-          ${c.outstanding > 0 ? `<div style="font-size: 0.75rem; color: #E11D48; font-weight: 700;">Bal: ₹${c.outstanding}</div>` : ''}
-        </div>
-      </div>
-    `).join('');
-  }
-  dropdown.classList.remove('hidden');
-}
-
-function selectBillingCustomer(customerId) {
-  const cust = state.customers.find(c => c.id === customerId);
-  if (!cust) return;
-
-  state.selectedCustomer = cust;
-  document.getElementById('bill-customer-search').value = `${cust.name} (${cust.mobile})`;
-  document.getElementById('bill-customer-category').value = cust.category;
-  document.getElementById('customer-dropdown-results').classList.add('hidden');
-
-  // Update credit indicator
-  document.getElementById('bill-cust-outstanding').textContent = `₹${cust.outstanding.toLocaleString('en-IN')}`;
-  document.getElementById('bill-cust-stats').textContent = `Lifetime: ${cust.total_weight} kg purchased (₹${cust.total_purchased.toLocaleString('en-IN')})`;
-
-  if (cust.outstanding > 0) {
-    showToast(`Note: ${cust.name} has an outstanding credit balance of ₹${cust.outstanding}`, 'warn');
-  }
-}
-
-// Generate Bill submission handler
-async function handleGenerateBill(e) {
-  e.preventDefault();
-
-  const customerSearchVal = document.getElementById('bill-customer-search').value.trim();
-  if (!customerSearchVal) {
-    showToast('Please enter customer name or mobile number', 'warn');
-    return;
-  }
-
-  // Parse name & mobile
-  let customerName = customerSearchVal;
-  let customerMobile = '9876543210';
-  let customerId = state.selectedCustomer ? state.selectedCustomer.id : null;
-
-  if (state.selectedCustomer) {
-    customerName = state.selectedCustomer.name;
-    customerMobile = state.selectedCustomer.mobile;
-  } else {
-    // Check if entered as "Name (Mobile)" or just name
-    const match = customerSearchVal.match(/^(.*?)(?:\s*\((.*?)\))?$/);
-    if (match) {
-      customerName = match[1].trim();
-      customerMobile = match[2] ? match[2].trim() : '9876543210';
-    }
-  }
-
-  const category = document.getElementById('bill-customer-category').value;
-  const payMethod = document.querySelector('input[name="payMethod"]:checked')?.value || 'Cash';
-  const discount = parseFloat(document.getElementById('bill-discount-input').value) || 0;
-  const additionalCharges = parseFloat(document.getElementById('bill-charges-input').value) || 0;
-  const amountReceived = parseFloat(document.getElementById('bill-received-input').value);
-  const notes = document.getElementById('bill-notes').value;
-
-  // Collect item rows
-  const rows = document.querySelectorAll('#bill-items-tbody tr');
-  if (rows.length === 0) {
-    showToast('Please add at least one flower item to the bill', 'warn');
-    return;
-  }
-
-  const items = [];
-  for (const tr of rows) {
-    const select = tr.querySelector('.item-flower-select');
-    const selectedOpt = select.options[select.selectedIndex];
-    const flowerId = selectedOpt ? selectedOpt.value : null;
-    const flowerName = selectedOpt ? selectedOpt.dataset.name : (select.value || 'Flowers');
-    const variety = tr.querySelector('.item-variety').value;
-    const weight = parseFloat(tr.querySelector('.item-weight').value);
-    const rate = parseFloat(tr.querySelector('.item-rate').value);
-
-    if (!flowerName || isNaN(weight) || weight <= 0 || isNaN(rate) || rate < 0) {
-      showToast('Please fill all item weights and rates correctly', 'warn');
+    const res = await authFetch('/api/dashboard/stats');
+    if (!res.ok) {
+      if (res.status === 401) { handleLogout(); return; }
       return;
     }
-
-    items.push({
-      flower_id: flowerId ? parseInt(flowerId, 10) : null,
-      flower_name: flowerName,
-      variety: variety || 'Local',
-      weight: weight,
-      unit: 'kg',
-      rate: rate
-    });
-  }
-
-  const btn = document.getElementById('btn-generate-bill');
-  btn.disabled = true;
-  btn.innerHTML = `<span>⏳ Processing Invoice...</span>`;
-
-  try {
-    const res = await authFetch('/api/invoices', {
-      method: 'POST',
-      body: JSON.stringify({
-        customer_id: customerId,
-        customer_name: customerName,
-        customer_mobile: customerMobile,
-        customer_category: category,
-        items,
-        discount,
-        additional_charges: additionalCharges,
-        payment_method: payMethod,
-        amount_received: isNaN(amountReceived) ? undefined : amountReceived,
-        notes
-      })
-    });
-
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to generate bill');
+    state.dashboardStats = data;
 
-    // Confetti celebration
-    if (typeof confetti === 'function') {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+    // 4 Summary Metrics
+    document.getElementById('dash-total-farmers').textContent = data.totalFarmers.toLocaleString('en-IN');
+    document.getElementById('dash-active-farmers').textContent = `${data.activeFarmers} active farmers`;
+    document.getElementById('dash-total-collections').textContent = data.totalCollections.toLocaleString('en-IN');
+    document.getElementById('dash-total-kg').textContent = `${data.totalQuantityKg.toLocaleString('en-IN')} kg total volume`;
+    document.getElementById('dash-total-payout').textContent = `₹${data.totalPayout.toLocaleString('en-IN')}`;
+    document.getElementById('dash-pending-payout').textContent = `₹${data.pendingPayout.toLocaleString('en-IN')} pending payout`;
+
+    // 15-Day Location Review Metrics
+    const dueCount = data.locationStats.totalDueOrOverdue;
+    document.getElementById('dash-location-due-count').textContent = dueCount;
+    document.getElementById('dash-location-status-breakdown').textContent =
+      `${data.locationStats.verified} verified • ${dueCount} due or overdue`;
+
+    // Sidebar & Top Nav Badges
+    document.getElementById('nav-farmer-count').textContent = data.totalFarmers;
+    const navDueBadge = document.getElementById('nav-location-due-badge');
+    const topDueChip = document.getElementById('top-location-due-chip');
+
+    if (dueCount > 0) {
+      navDueBadge.textContent = `${dueCount} Due`;
+      navDueBadge.classList.remove('hidden');
+      document.getElementById('top-location-due-text').textContent = `${dueCount} Reviews Due`;
+      topDueChip.classList.remove('hidden');
+
+      // Alert banner on dashboard
+      const banner = document.getElementById('dashboard-location-alert-banner');
+      banner.classList.remove('hidden');
+      document.getElementById('alert-banner-title').textContent = `${dueCount} Farmer Locations Due for 15-Day Review`;
+      document.getElementById('alert-banner-desc').textContent =
+        `There are ${data.locationStats.overdue} overdue and ${data.locationStats.dueSoon} due-soon farmer location records that require verification.`;
+    } else {
+      navDueBadge.classList.add('hidden');
+      topDueChip.classList.add('hidden');
+      document.getElementById('dashboard-location-alert-banner').classList.add('hidden');
     }
 
-    showToast(`Bill #${data.invoice.invoice_no} generated successfully!`, 'success');
-    state.currentInvoice = data.invoice;
+    // Render Recent Collections Table (or Empty State)
+    renderDashboardRecentCollections(data.recentCollections);
 
-    // Show printable modal
-    openInvoiceModal(data.invoice);
+    // Render Flower Breakdown List (or Empty State)
+    renderDashboardFlowerBreakdown(data.flowerTypeBreakdown);
 
-    // Refresh stock and customer data in background
-    fetchFlowers();
-    fetchCustomers();
-    fetchDashboardData();
-
-    // Reset bill items for next customer
-    resetBillForm();
+    // Render Audit Stream
+    renderDashboardAuditStream(data.recentAuditLogs);
 
   } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<span>⚡ Generate Bill</span> <span class="total-badge" id="btn-bill-total-badge">₹0</span>`;
-    recalculateBillTotals();
+    console.error('Failed to fetch dashboard stats:', err);
   }
 }
 
-function resetBillForm() {
-  state.selectedCustomer = null;
-  document.getElementById('bill-customer-search').value = '';
-  document.getElementById('bill-cust-outstanding').textContent = '₹0';
-  document.getElementById('bill-cust-stats').textContent = 'Lifetime: 0 kg purchased';
-  document.getElementById('bill-discount-input').value = 0;
-  document.getElementById('bill-charges-input').value = 0;
-  document.getElementById('bill-notes').value = '';
-  document.getElementById('bill-items-tbody').innerHTML = '';
-  addBillingItemRow();
-  recalculateBillTotals();
-  fetchLiveInvoiceNumber();
-}
+function renderDashboardRecentCollections(collections) {
+  const container = document.getElementById('dash-collections-table-wrap');
+  if (!container) return;
 
-// =========================================================
-// 3. INVOICE PREVIEW & PRINT MODAL
-// =========================================================
-function openInvoiceModal(invoice) {
-  state.currentInvoice = invoice;
-
-  document.getElementById('modal-invoice-no-title').textContent = invoice.invoice_no;
-  document.getElementById('inv-doc-no').textContent = invoice.invoice_no;
-  document.getElementById('inv-doc-date').textContent = invoice.created_at;
-  document.getElementById('inv-doc-cust-name').textContent = invoice.customer_name;
-  document.getElementById('inv-doc-cust-mobile').textContent = invoice.customer_mobile;
-  document.getElementById('inv-doc-cust-cat').textContent = invoice.customer_category;
-
-  document.getElementById('inv-doc-pay-method').textContent = invoice.payment_method;
-  document.getElementById('inv-doc-received').textContent = `₹${invoice.amount_received.toLocaleString('en-IN')}`;
-  document.getElementById('inv-doc-balance').textContent = `₹${invoice.balance_due.toLocaleString('en-IN')}`;
-  document.getElementById('inv-doc-staff').textContent = `${invoice.created_by} (${invoice.created_by_role})`;
-
-  document.getElementById('inv-doc-subtotal').textContent = `₹${invoice.subtotal.toLocaleString('en-IN')}`;
-  document.getElementById('inv-doc-discount').textContent = `₹${invoice.discount.toLocaleString('en-IN')}`;
-  document.getElementById('inv-doc-charges').textContent = `₹${invoice.additional_charges.toLocaleString('en-IN')}`;
-  document.getElementById('inv-doc-total').textContent = `₹${invoice.total_amount.toLocaleString('en-IN')}`;
-  document.getElementById('inv-doc-notes').textContent = invoice.notes || 'Thank you for your business!';
-
-  // Populate items table
-  const tbody = document.getElementById('inv-doc-items-tbody');
-  tbody.innerHTML = invoice.items.map((it, idx) => `
-    <tr>
-      <td>${idx + 1}</td>
-      <td><strong>${it.flower_name}</strong></td>
-      <td>${it.variety}</td>
-      <td>${it.weight} ${it.unit || 'kg'}</td>
-      <td>₹${it.rate}</td>
-      <td><strong>₹${it.amount.toLocaleString('en-IN')}</strong></td>
-    </tr>
-  `).join('');
-
-  document.getElementById('invoice-modal').classList.remove('hidden');
-}
-
-function closeInvoiceModal() {
-  document.getElementById('invoice-modal').classList.add('hidden');
-}
-
-function printInvoiceModal() {
-  window.print();
-}
-
-function downloadInvoicePDF() {
-  showToast('Opening PDF print dialog...', 'info');
-  window.print();
-}
-
-function shareInvoiceWhatsApp() {
-  if (!state.currentInvoice) return;
-  const inv = state.currentInvoice;
-  const text = `🌸 *Fresh Blooms - Tax Invoice* 🌸\n` +
-    `Invoice: *#${inv.invoice_no}*\n` +
-    `Customer: ${inv.customer_name}\n` +
-    `Total Amount: ₹${inv.total_amount.toLocaleString('en-IN')}\n` +
-    `Paid: ₹${inv.amount_received.toLocaleString('en-IN')}\n` +
-    `Balance Due: ₹${inv.balance_due.toLocaleString('en-IN')}\n` +
-    `Payment Mode: ${inv.payment_method}\n` +
-    `Thank you for blooming with Fresh Blooms! 🌺`;
-
-  const phone = inv.customer_mobile.replace(/[^0-9]/g, '');
-  const url = `https://wa.me/91${phone}?text=${encodeURIComponent(text)}`;
-  window.open(url, '_blank');
-}
-
-// =========================================================
-// 4. CUSTOMER MANAGEMENT & DRAWER
-// =========================================================
-async function fetchCustomers() {
-  try {
-    const res = await authFetch('/api/customers');
-    if (!res.ok) return;
-    state.customers = await res.json();
-    renderCustomerTable(state.customers);
-
-    // Auto-select first customer for detail card preview
-    if (state.customers.length > 0 && !state.selectedCustomer) {
-      viewCustomerDetail(state.customers[0].id);
-    }
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-function renderCustomerTable(customers) {
-  const tbody = document.getElementById('customers-tbody');
-  if (!tbody) return;
-
-  tbody.innerHTML = customers.map(c => `
-    <tr onclick="viewCustomerDetail('${c.id}')" style="cursor: pointer;">
-      <td><span class="badge-code">${c.id}</span></td>
-      <td><strong>${c.name}</strong> ${c.shop_name ? `<br><small style="color: #64748B;">${c.shop_name}</small>` : ''}</td>
-      <td>${c.mobile}</td>
-      <td><span class="badge-cat ${c.category.replace(/\s+/g, '')}">${c.category}</span></td>
-      <td><strong>₹${c.total_purchased.toLocaleString('en-IN')}</strong></td>
-      <td><strong class="${c.outstanding > 0 ? 'text-rose' : 'text-green'}">₹${c.outstanding.toLocaleString('en-IN')}</strong></td>
-      <td>${c.last_purchase_date || '—'}</td>
-      <td>
-        <button class="btn btn-outline btn-xs" onclick="event.stopPropagation(); startBillForCustomer('${c.id}')">🧾 Bill</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-function filterCustomerTable(term) {
-  if (!term) {
-    renderCustomerTable(state.customers);
-    return;
-  }
-  term = term.toLowerCase().trim();
-  const filtered = state.customers.filter(c =>
-    c.name.toLowerCase().includes(term) ||
-    c.mobile.includes(term) ||
-    (c.shop_name && c.shop_name.toLowerCase().includes(term))
-  );
-  renderCustomerTable(filtered);
-}
-
-function filterCustomerCategory(cat, btn) {
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-  btn.classList.add('active');
-
-  if (cat === 'All') {
-    renderCustomerTable(state.customers);
-  } else {
-    const filtered = state.customers.filter(c => c.category === cat);
-    renderCustomerTable(filtered);
-  }
-}
-
-async function viewCustomerDetail(customerId) {
-  try {
-    const res = await authFetch(`/api/customers/${customerId}`);
-    if (!res.ok) return;
-    const c = await res.json();
-    state.selectedCustomer = c;
-
-    document.getElementById('cust-profile-avatar').textContent = c.name.charAt(0).toUpperCase();
-    document.getElementById('cust-profile-name').textContent = c.name;
-    document.getElementById('cust-profile-id').textContent = c.id;
-    document.getElementById('cust-profile-mobile').textContent = `Mobile: ${c.mobile}`;
-    document.getElementById('cust-profile-cat').textContent = c.category;
-
-    document.getElementById('cust-stat-purchased').textContent = `₹${c.total_purchased.toLocaleString('en-IN')}`;
-    document.getElementById('cust-stat-weight').textContent = `${c.total_weight} kg`;
-    document.getElementById('cust-stat-paid').textContent = `₹${c.total_paid.toLocaleString('en-IN')}`;
-    document.getElementById('cust-stat-outstanding').textContent = `₹${c.outstanding.toLocaleString('en-IN')}`;
-
-    // Render purchase history
-    const tbody = document.getElementById('cust-invoices-tbody');
-    tbody.innerHTML = (c.invoices || []).map(inv => `
-      <tr onclick="viewInvoiceById('${inv.id}')" style="cursor: pointer;">
-        <td>${inv.created_at.slice(0, 10)}</td>
-        <td><span class="badge-code">${inv.invoice_no}</span></td>
-        <td>Flowers (${inv.payment_status})</td>
-        <td>${inv.items ? inv.items.reduce((s, i) => s + i.weight, 0) + ' kg' : '—'}</td>
-        <td><strong>₹${inv.total_amount.toLocaleString('en-IN')}</strong></td>
-        <td><span class="badge-cat ${inv.payment_method.replace(/\s+/g, '')}">${inv.payment_method}</span></td>
-      </tr>
-    `).join('') || `<tr><td colspan="6" style="text-align: center; color: #94A3B8;">No purchase records found</td></tr>`;
-
-    // Render frequent flowers
-    const freqGrid = document.getElementById('cust-frequent-grid');
-    freqGrid.innerHTML = (c.frequentFlowers || []).map(f => `
-      <div class="freq-flower-card">
-        <div class="freq-flower-name">${f.flower_name}</div>
-        <div style="font-size: 0.85rem; color: #64748B;">Total: <strong>${f.total_kg} kg</strong></div>
-        <div style="font-size: 0.85rem; color: #15803D;">Spend: <strong>₹${f.total_spent.toLocaleString('en-IN')}</strong></div>
+  if (!collections || collections.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state-box">
+        <div class="empty-icon">🧺</div>
+        <h4>No Harvest Collections Recorded Yet</h4>
+        <p>No flower collections have been logged in the system. Use the button below to record the first intake from a registered farmer.</p>
+        <button class="btn btn-primary btn-sm" onclick="openNewCollectionModal()">
+          <span>🌸 Record First Collection</span>
+        </button>
       </div>
-    `).join('') || `<p style="color: #94A3B8;">No frequent purchases yet</p>`;
-
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-function switchCustomerTab(tab, btn) {
-  document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  if (tab === 'history') {
-    document.getElementById('cust-tab-history').classList.remove('hidden');
-    document.getElementById('cust-tab-frequent').classList.add('hidden');
-  } else {
-    document.getElementById('cust-tab-history').classList.add('hidden');
-    document.getElementById('cust-tab-frequent').classList.remove('hidden');
-  }
-}
-
-function startBillForCustomer(customerId) {
-  const targetId = customerId || (state.selectedCustomer ? state.selectedCustomer.id : null);
-  navigateTo('new-bill');
-  if (targetId) {
-    selectBillingCustomer(targetId);
-  }
-}
-
-// Settle customer credit modal
-function openSettleCreditModal() {
-  if (!state.selectedCustomer) {
-    showToast('Select a customer first', 'warn');
+    `;
     return;
   }
-  const c = state.selectedCustomer;
-  document.getElementById('settle-customer-title').textContent = `Customer: ${c.name} (${c.id})`;
-  document.getElementById('settle-outstanding-amt').textContent = `₹${c.outstanding.toLocaleString('en-IN')}`;
-  document.getElementById('settle-amount').value = c.outstanding;
-  document.getElementById('settle-credit-modal').classList.remove('hidden');
+
+  container.innerHTML = `
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Collection ID</th>
+          <th>Farmer</th>
+          <th>Village</th>
+          <th>Flower</th>
+          <th>Weight</th>
+          <th>Total</th>
+          <th>Payment</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${collections.map(c => `
+          <tr>
+            <td><span class="badge-code">${c.id}</span></td>
+            <td><strong>${escapeHtml(c.farmer_name)}</strong></td>
+            <td>${escapeHtml(c.farmer_village)}</td>
+            <td>${escapeHtml(c.flower_type)}</td>
+            <td><strong>${c.quantity_kg} kg</strong></td>
+            <td><strong>₹${c.total_amount.toLocaleString('en-IN')}</strong></td>
+            <td><span class="badge-tag ${c.payment_status.toLowerCase()}">${c.payment_status}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
-function closeSettleCreditModal() {
-  document.getElementById('settle-credit-modal').classList.add('hidden');
-}
+function renderDashboardFlowerBreakdown(breakdown) {
+  const container = document.getElementById('dash-flower-breakdown-list');
+  if (!container) return;
 
-async function handleSettleCredit(e) {
-  e.preventDefault();
-  if (!state.selectedCustomer) return;
-
-  const amount = parseFloat(document.getElementById('settle-amount').value);
-  const payment_method = document.getElementById('settle-method').value;
-  const notes = document.getElementById('settle-notes').value;
-
-  try {
-    const res = await authFetch(`/api/customers/${state.selectedCustomer.id}/payment`, {
-      method: 'POST',
-      body: JSON.stringify({ amount, payment_method, notes })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    showToast(`Payment of ₹${amount} recorded! Receipt: ${data.receiptNo}`, 'success');
-    closeSettleCreditModal();
-
-    // Refresh customer profile & list
-    await fetchCustomers();
-    viewCustomerDetail(state.selectedCustomer.id);
-    fetchDashboardData();
-  } catch (err) {
-    showToast(err.message, 'error');
+  if (!breakdown || breakdown.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state-box" style="padding: 24px;">
+        <p style="margin: 0; font-size: 0.82rem; color: #64748B;">No flower intake recorded yet.</p>
+      </div>
+    `;
+    return;
   }
+
+  container.innerHTML = breakdown.map(f => `
+    <div class="summary-list-item">
+      <div>
+        <strong>${escapeHtml(f.flower_type)}</strong>
+        <div style="font-size: 0.75rem; color: #64748B;">${f.record_count} collection batch(es)</div>
+      </div>
+      <div style="text-align: right;">
+        <strong>${f.total_kg} kg</strong>
+        <div style="font-size: 0.75rem; color: #15803D;">₹${f.total_amount.toLocaleString('en-IN')}</div>
+      </div>
+    </div>
+  `).join('');
 }
 
-// New customer modal
-function openNewCustomerModal(initialName = '') {
-  document.getElementById('new-customer-form').reset();
-  if (initialName) document.getElementById('new-cust-name').value = initialName;
-  document.getElementById('new-customer-modal').classList.remove('hidden');
-}
+function renderDashboardAuditStream(logs) {
+  const container = document.getElementById('dash-audit-stream-list');
+  if (!container) return;
 
-function closeNewCustomerModal() {
-  document.getElementById('new-customer-modal').classList.add('hidden');
-}
-
-async function handleCreateCustomer(e) {
-  e.preventDefault();
-  const name = document.getElementById('new-cust-name').value.trim();
-  const mobile = document.getElementById('new-cust-mobile').value.trim();
-  const category = document.getElementById('new-cust-cat').value;
-  const shop_name = document.getElementById('new-cust-shop').value.trim();
-  const address = document.getElementById('new-cust-address').value.trim();
-
-  try {
-    const res = await authFetch('/api/customers', {
-      method: 'POST',
-      body: JSON.stringify({ name, mobile, category, shop_name, address })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    showToast(`Customer ${data.name} (${data.id}) created!`, 'success');
-    closeNewCustomerModal();
-    await fetchCustomers();
-
-    // If on billing page, auto-select this new customer!
-    if (state.currentView === 'new-bill') {
-      selectBillingCustomer(data.id);
-    } else {
-      viewCustomerDetail(data.id);
-    }
-  } catch (err) {
-    showToast(err.message, 'error');
+  if (!logs || logs.length === 0) {
+    container.innerHTML = `<p style="font-size: 0.82rem; color: #64748B; padding: 12px;">No recent audit activity.</p>`;
+    return;
   }
+
+  container.innerHTML = logs.map(l => `
+    <div class="audit-stream-item">
+      <div class="audit-time">${formatDate(l.timestamp)} • ${escapeHtml(l.actor_name)}</div>
+      <div class="audit-text">${escapeHtml(l.details)}</div>
+    </div>
+  `).join('');
 }
 
 // =========================================================
-// 5. FLOWER INVENTORY MANAGEMENT
+// 4. FARMERS MANAGEMENT
 // =========================================================
-async function fetchFlowers() {
+async function fetchFarmersList() {
+  const search = document.getElementById('farmer-search-input')?.value || '';
+  const village = document.getElementById('farmer-village-filter')?.value || '';
+  const reviewStatus = document.getElementById('farmer-review-filter')?.value || '';
+  const page = state.farmerPagination.page;
+
   try {
-    const res = await authFetch('/api/flowers');
+    const res = await authFetch(`/api/farmers?search=${encodeURIComponent(search)}&village=${encodeURIComponent(village)}&reviewStatus=${encodeURIComponent(reviewStatus)}&page=${page}&limit=${state.farmerPagination.limit}`);
     if (!res.ok) return;
-    state.flowers = await res.json();
-    renderInventoryTable(state.flowers);
 
-    // Check minimum stock alerts
-    const lowStock = state.flowers.filter(f => f.available_stock <= f.min_stock);
-    const alertBadge = document.getElementById('sidebar-stock-alert');
-    if (lowStock.length > 0) {
-      alertBadge.textContent = lowStock.length;
-      alertBadge.classList.remove('hidden');
-    } else {
-      alertBadge.classList.add('hidden');
-    }
+    const data = await res.json();
+    state.farmers = data.farmers;
+    state.villages = data.villages;
+    state.farmerPagination = data.pagination;
+
+    // Update village filter dropdown options
+    updateVillageFilterDropdown(data.villages);
+
+    // Records counter
+    document.getElementById('farmers-records-counter').textContent = `${data.pagination.total} registered farmers`;
+
+    renderFarmersTable(data.farmers);
+    renderPaginationControls('farmers-pagination', data.pagination, (p) => {
+      state.farmerPagination.page = p;
+      fetchFarmersList();
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error('Failed to fetch farmers list:', err);
   }
 }
 
-function renderInventoryTable(flowers) {
-  const tbody = document.getElementById('inventory-tbody');
+function updateVillageFilterDropdown(villages) {
+  const select = document.getElementById('farmer-village-filter');
+  if (!select) return;
+  const currentVal = select.value;
+  select.innerHTML = '<option value="">All Villages</option>' +
+    villages.map(v => `<option value="${escapeHtml(v)}" ${v === currentVal ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('');
+}
+
+function onFarmerSearchChange(val) {
+  state.farmerPagination.page = 1;
+  fetchFarmersList();
+}
+
+function onFarmerFilterChange() {
+  state.farmerPagination.page = 1;
+  fetchFarmersList();
+}
+
+function renderFarmersTable(farmers) {
+  const tbody = document.getElementById('farmers-table-tbody');
   if (!tbody) return;
 
-  tbody.innerHTML = flowers.map(f => {
-    const isLow = f.available_stock <= f.min_stock;
+  if (!farmers || farmers.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state-box">
+            <div class="empty-icon">👨‍🌾</div>
+            <h4>${t('empty_farmers_title', 'No Farmers Found in Registry')}</h4>
+            <p>${t('empty_farmers_desc', 'No farmers registered in the system yet. Register your first flower farmer to begin.')}</p>
+            <button class="btn btn-primary btn-sm" onclick="openNewFarmerModal()">
+              <span>${t('btn_register_farmer', '+ Register New Farmer')}</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = farmers.map(f => {
+    const locStatus = f.location_review_status || 'unavailable';
+    const locStatusLabel = t(locStatus, locStatus);
+
+    const btnProfile = state.lang === 'ta' ? '👤 சுயவிவரம்' : '👤 Profile';
+    const btnLoc = state.lang === 'ta' ? '📍 இருப்பிடம்' : '📍 Location';
+    const btnHarvest = state.lang === 'ta' ? '🌸 வரவு' : '🌸 Harvest';
+
     return `
       <tr>
-        <td><strong>${f.name}</strong></td>
-        <td>${f.variety}</td>
-        <td><strong style="font-size: 1.05rem; ${isLow ? 'color: #DC2626;' : 'color: #15803D;'}">${f.available_stock}</strong></td>
-        <td>${f.unit || 'kg'}</td>
-        <td>${f.min_stock} kg</td>
-        <td><strong>₹${f.selling_rate}</strong> / kg</td>
-        <td style="color: #64748B;">₹${f.purchase_cost} / kg</td>
-        <td>
-          <span class="badge-status ${isLow ? 'low' : 'ok'}">
-            ${isLow ? '⚠️ Low Stock' : '✓ OK'}
-          </span>
-        </td>
+        <td><span class="badge-code">${f.id}</span></td>
+        <td><strong>${escapeHtml(f.full_name)}</strong></td>
+        <td>${escapeHtml(f.contact_number)}</td>
+        <td>${escapeHtml(f.village)}</td>
+        <td><span class="badge-tag ${locStatus}">${locStatusLabel}</span></td>
+        <td><strong>${f.total_collected_kg} kg</strong></td>
+        <td><strong>₹${f.total_payout.toLocaleString('en-IN')}</strong></td>
+        <td>${f.last_collection_date || '—'}</td>
         <td>
           <div style="display: flex; gap: 6px;">
-            <button class="btn btn-outline btn-xs" onclick="openAddStockModal(${f.id})">+ Stock</button>
-            <button class="btn btn-outline btn-xs" onclick="openWastageModal(${f.id})">🥀 Waste</button>
+            <button class="btn btn-outline btn-xs" onclick="openFarmerProfileModal('${f.id}')" title="View Full Profile">${btnProfile}</button>
+            <button class="btn btn-outline btn-xs" onclick="openLocationReviewForFarmer('${f.id}')" title="Review 15-Day Location">${btnLoc}</button>
+            <button class="btn btn-primary btn-xs" onclick="startCollectionForFarmer('${f.id}')" title="Record Flower Harvest">${btnHarvest}</button>
           </div>
         </td>
       </tr>
@@ -1230,481 +622,651 @@ function renderInventoryTable(flowers) {
   }).join('');
 }
 
-async function fetchStockMovements() {
-  try {
-    const res = await authFetch('/api/inventory/movements');
-    if (!res.ok) return;
-    const movements = await res.json();
-    const tbody = document.getElementById('movements-tbody');
-    if (!tbody) return;
+// Modal: Register Farmer
+function openNewFarmerModal() {
+  document.getElementById('new-farmer-form').reset();
+  document.getElementById('new-farmer-modal').classList.remove('hidden');
+}
 
-    tbody.innerHTML = movements.map(m => `
+function closeNewFarmerModal() {
+  document.getElementById('new-farmer-modal').classList.add('hidden');
+}
+
+async function handleCreateFarmer(e) {
+  e.preventDefault();
+  const full_name = document.getElementById('farmer-name').value.trim();
+  const contact_number = document.getElementById('farmer-contact').value.trim();
+  const village = document.getElementById('farmer-village').value.trim();
+  const address = document.getElementById('farmer-address').value.trim();
+  const latitude = document.getElementById('farmer-lat').value;
+  const longitude = document.getElementById('farmer-lng').value;
+  const notes = document.getElementById('farmer-notes').value.trim();
+
+  const btn = document.getElementById('btn-save-farmer');
+  btn.disabled = true;
+
+  try {
+    const res = await authFetch('/api/farmers', {
+      method: 'POST',
+      body: JSON.stringify({ full_name, contact_number, village, address, latitude, longitude, notes })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(`Farmer ${data.full_name} (${data.id}) registered successfully!`, 'success');
+    closeNewFarmerModal();
+    fetchFarmersList();
+    fetchDashboardStats(false);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// =========================================================
+// 5. 15-DAY FARMER LOCATION REVIEW & INTERACTIVE MAP
+// =========================================================
+function initLocationsMapView() {
+  loadMapData();
+  fetchDueLocationsList();
+}
+
+async function loadMapData() {
+  const statusFilter = document.getElementById('map-filter-status')?.value || '';
+
+  try {
+    const res = await authFetch(`/api/farmers/locations/map?reviewStatus=${encodeURIComponent(statusFilter)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    document.getElementById('map-active-count').textContent = `Showing ${data.count} mapped farmer(s) with verified GPS`;
+
+    renderLeafletMap(data.farmers);
+  } catch (err) {
+    console.error('Failed to load map data:', err);
+  }
+}
+
+function renderLeafletMap(farmers) {
+  const mapElement = document.getElementById('farmers-leaflet-map');
+  if (!mapElement) return;
+
+  // Initialize or re-use map instance
+  if (!state.mapInstance) {
+    state.mapInstance = L.map('farmers-leaflet-map').setView([11.1271, 78.6569], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(state.mapInstance);
+  }
+
+  // Clear previous markers
+  state.mapMarkers.forEach(m => m.remove());
+  state.mapMarkers = [];
+
+  if (farmers.length === 0) {
+    return;
+  }
+
+  const bounds = [];
+
+  farmers.forEach(f => {
+    if (f.latitude && f.longitude) {
+      const lat = parseFloat(f.latitude);
+      const lng = parseFloat(f.longitude);
+
+      bounds.push([lat, lng]);
+
+      const locStatus = f.location_review_status || 'verified';
+      const markerColor = locStatus === 'overdue' ? '#DC2626' : locStatus === 'due_soon' ? '#D97706' : '#16A34A';
+
+      // Custom SVG marker icon with high visibility
+      const customIcon = L.divIcon({
+        className: 'custom-map-pin',
+        html: `<div style="background-color: ${markerColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #FFFFFF; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(state.mapInstance);
+
+      const popupHtml = `
+        <div class="custom-map-popup">
+          <h4>${escapeHtml(f.full_name)} (${f.id})</h4>
+          <p><strong>Village:</strong> ${escapeHtml(f.village)}</p>
+          <p><strong>Contact:</strong> ${escapeHtml(f.contact_number)}</p>
+          <p><strong>15-Day Status:</strong> <span class="badge-tag ${locStatus}">${locStatus.toUpperCase()}</span></p>
+          <p><strong>Last Reviewed:</strong> ${f.last_location_reviewed_at || 'Registration'}</p>
+          <p><strong>Next Due:</strong> ${f.next_location_review_due_at || '—'}</p>
+          <p><strong>Total Harvest:</strong> ${f.total_collected_kg} kg</p>
+          <button class="btn btn-primary btn-xs popup-btn" onclick="openLocationReviewForFarmer('${f.id}')">
+            📍 Update / Verify Location
+          </button>
+        </div>
+      `;
+
+      marker.bindPopup(popupHtml);
+      state.mapMarkers.push(marker);
+    }
+  });
+
+  if (bounds.length > 0) {
+    state.mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  }
+
+  // Invalidate size to ensure proper tile rendering inside dynamic containers
+  setTimeout(() => state.mapInstance.invalidateSize(), 200);
+}
+
+async function fetchDueLocationsList() {
+  const tbody = document.getElementById('due-locations-tbody');
+  if (!tbody) return;
+
+  try {
+    const res = await authFetch('/api/farmers?limit=100');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const dueFarmers = data.farmers.filter(f => f.location_review_status === 'overdue' || f.location_review_status === 'due_soon' || f.location_review_status === 'unavailable');
+
+    if (dueFarmers.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" style="text-align: center; color: #166534; padding: 24px; font-weight: 600;">
+            ✓ All registered farmer locations are currently up to date within the 15-day review cycle!
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = dueFarmers.map(f => `
       <tr>
-        <td>${m.created_at}</td>
-        <td><strong>${m.flower_name}</strong></td>
-        <td>${m.variety}</td>
+        <td><strong>${escapeHtml(f.full_name)}</strong> <small>(${f.id})</small></td>
+        <td>${escapeHtml(f.village)}</td>
+        <td>${escapeHtml(f.contact_number)}</td>
+        <td>${f.latitude && f.longitude ? `${f.latitude.toFixed(4)}, ${f.longitude.toFixed(4)}` : '<span style="color: #64748B;">No GPS</span>'}</td>
+        <td>${f.last_location_reviewed_at || 'Never'}</td>
+        <td><strong>${f.next_location_review_due_at || 'Immediate'}</strong></td>
+        <td><span class="badge-tag ${f.location_review_status}">${f.location_review_status.toUpperCase()}</span></td>
         <td>
-          <span class="badge-cat ${m.type}">
-            ${m.type === 'Purchase' ? '📥 Purchase' : m.type === 'Sale' ? '🧾 Sale' : m.type === 'Wastage' ? '🥀 Wastage' : '⚙️ Adjust'}
-          </span>
+          <button class="btn btn-outline btn-xs" onclick="openLocationReviewForFarmer('${f.id}')">
+            📍 Review & Verify
+          </button>
         </td>
-        <td>
-          <strong style="${m.weight > 0 ? 'color: #15803D;' : 'color: #E11D48;'}">
-            ${m.weight > 0 ? `+${m.weight}` : m.weight} kg
-          </strong>
-        </td>
-        <td>${m.rate ? `₹${m.rate}` : '—'}</td>
-        <td>${m.supplier || m.reason || '—'}</td>
-        <td>${m.recorded_by}</td>
       </tr>
-    `).join('') || `<tr><td colspan="8" style="text-align: center; color: #94A3B8;">No movements logged</td></tr>`;
+    `).join('');
+
   } catch (err) {
     console.error(err);
   }
 }
 
-// Add stock modal
-function openAddStockModal(flowerId = null) {
-  const select = document.getElementById('stock-flower-id');
-  select.innerHTML = state.flowers.map(f => `
-    <option value="${f.id}" data-cost="${f.purchase_cost}" ${f.id === flowerId ? 'selected' : ''}>
-      ${f.name} (${f.variety}) - Current: ${f.available_stock}kg
-    </option>
-  `).join('');
-
-  if (flowerId) onStockFlowerSelect(flowerId);
-  document.getElementById('add-stock-modal').classList.remove('hidden');
-}
-
-function closeAddStockModal() {
-  document.getElementById('add-stock-modal').classList.add('hidden');
-}
-
-function onStockFlowerSelect(flowerId) {
-  const f = state.flowers.find(item => item.id === parseInt(flowerId, 10));
-  if (f) {
-    document.getElementById('stock-rate').value = f.purchase_cost;
+async function runManualLocationReviewScan() {
+  try {
+    const res = await authFetch('/api/farmers/locations/run-review', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.message || '15-day review scan completed.', 'success');
+    initLocationsMapView();
+    fetchDashboardStats(false);
+  } catch (err) {
+    showToast(err.message, 'error');
   }
 }
 
-async function handleAddStock(e) {
+// Modal: 15-Day Location Review
+async function openLocationReviewForFarmer(farmerId) {
+  try {
+    const res = await authFetch(`/api/farmers/${farmerId}`);
+    if (!res.ok) return;
+    const farmer = await res.json();
+
+    document.getElementById('loc-review-farmer-id').value = farmer.id;
+    document.getElementById('loc-review-farmer-name').textContent = farmer.full_name;
+    document.getElementById('loc-review-farmer-code').textContent = farmer.id;
+
+    const statusPill = document.getElementById('loc-review-status-pill');
+    statusPill.textContent = (farmer.location_review_status || 'unavailable').toUpperCase();
+    statusPill.className = `badge-tag ${farmer.location_review_status || 'unavailable'}`;
+
+    document.getElementById('loc-review-lat').value = farmer.latitude || '';
+    document.getElementById('loc-review-lng').value = farmer.longitude || '';
+    document.getElementById('loc-review-village').value = farmer.village || '';
+    document.getElementById('loc-review-notes').value = '';
+
+    document.getElementById('location-review-modal').classList.remove('hidden');
+  } catch (err) {
+    showToast('Failed to load farmer details.', 'error');
+  }
+}
+
+function closeLocationReviewModal() {
+  document.getElementById('location-review-modal').classList.add('hidden');
+}
+
+async function handleSubmitLocationReview(e) {
   e.preventDefault();
-  const flower_id = parseInt(document.getElementById('stock-flower-id').value, 10);
-  const weight = parseFloat(document.getElementById('stock-weight').value);
-  const rate = parseFloat(document.getElementById('stock-rate').value);
-  const supplier = document.getElementById('stock-supplier').value.trim();
-  const notes = document.getElementById('stock-notes').value.trim();
+  const farmerId = document.getElementById('loc-review-farmer-id').value;
+  const latitude = document.getElementById('loc-review-lat').value;
+  const longitude = document.getElementById('loc-review-lng').value;
+  const village = document.getElementById('loc-review-village').value.trim();
+  const source = document.getElementById('loc-review-source').value;
+  const review_notes = document.getElementById('loc-review-notes').value.trim();
+
+  const btn = document.getElementById('btn-submit-review');
+  btn.disabled = true;
 
   try {
-    const res = await authFetch('/api/inventory/purchase', {
+    const res = await authFetch(`/api/farmers/${farmerId}/location`, {
       method: 'POST',
-      body: JSON.stringify({ flower_id, weight, rate, supplier, notes })
+      body: JSON.stringify({ latitude, longitude, village, source, review_notes })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast('Location verified and 15-day review cycle updated!', 'success');
+    closeLocationReviewModal();
+
+    if (state.currentView === 'locations') initLocationsMapView();
+    else if (state.currentView === 'farmers') fetchFarmersList();
+    fetchDashboardStats(false);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Device HTML5 Geolocation Helper
+function captureDeviceCoordinates(latElemId, lngElemId) {
+  if (!navigator.geolocation) {
+    showToast('Geolocation is not supported by your browser.', 'warn');
+    return;
+  }
+
+  showToast('Requesting GPS device coordinates...', 'info');
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      document.getElementById(latElemId).value = pos.coords.latitude.toFixed(6);
+      document.getElementById(lngElemId).value = pos.coords.longitude.toFixed(6);
+      showToast('GPS coordinates captured accurately.', 'success');
+    },
+    (err) => {
+      showToast(`GPS capture error: ${err.message}`, 'error');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// =========================================================
+// 6. FLOWER HARVEST COLLECTIONS
+// =========================================================
+async function fetchCollectionsList() {
+  const search = document.getElementById('collection-search-input')?.value || '';
+  const flower = document.getElementById('collection-flower-filter')?.value || '';
+  const payStatus = document.getElementById('collection-pay-filter')?.value || '';
+  const page = state.collectionPagination.page;
+
+  try {
+    const res = await authFetch(`/api/collections?farmer_id=${encodeURIComponent(search)}&flower_type=${encodeURIComponent(flower)}&payment_status=${encodeURIComponent(payStatus)}&page=${page}&limit=${state.collectionPagination.limit}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    state.collectionPagination = data.pagination;
+
+    document.getElementById('collections-records-counter').textContent = `${data.pagination.total} collection records`;
+
+    renderCollectionsTable(data.collections);
+    renderPaginationControls('collections-pagination', data.pagination, (p) => {
+      state.collectionPagination.page = p;
+      fetchCollectionsList();
+    });
+
+  } catch (err) {
+    console.error('Failed to fetch collections:', err);
+  }
+}
+
+function onCollectionFilterChange() {
+  state.collectionPagination.page = 1;
+  fetchCollectionsList();
+}
+
+function renderCollectionsTable(collections) {
+  const tbody = document.getElementById('collections-table-tbody');
+  if (!tbody) return;
+
+  if (!collections || collections.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="11">
+          <div class="empty-state-box">
+            <div class="empty-icon">🌸</div>
+            <h4>No Flower Collections Recorded</h4>
+            <p>No harvest collections have been recorded yet. Click below to record flower intake from a registered farmer.</p>
+            <button class="btn btn-primary btn-sm" onclick="openNewCollectionModal()">
+              <span>+ Record Flower Collection</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = collections.map(c => `
+    <tr style="${c.status === 'cancelled' ? 'opacity: 0.6; background: #FFF5F5;' : ''}">
+      <td><span class="badge-code">${c.id}</span></td>
+      <td>${c.collection_date}</td>
+      <td><strong>${escapeHtml(c.farmer_name)}</strong> <small>(${c.farmer_id})</small></td>
+      <td>${escapeHtml(c.farmer_village)}</td>
+      <td><strong>${escapeHtml(c.flower_type)}</strong> <small>(${escapeHtml(c.variety || 'Local')})</small></td>
+      <td><strong>${c.quantity_kg} kg</strong></td>
+      <td>₹${c.rate_per_kg}</td>
+      <td><strong>₹${c.total_amount.toLocaleString('en-IN')}</strong></td>
+      <td>${escapeHtml(c.quality_grade || 'Grade A')}</td>
+      <td>
+        ${c.status === 'cancelled' ?
+          `<span class="badge-tag cancelled">Cancelled</span>` :
+          `<span class="badge-tag ${c.payment_status.toLowerCase()}">${c.payment_status}</span>`
+        }
+      </td>
+      <td>
+        ${c.status !== 'cancelled' ? `
+          <button class="btn btn-outline btn-xs" onclick="handleCancelCollectionPrompt('${c.id}')" title="Reverse Collection">
+            ✕ Reverse
+          </button>
+        ` : `<span style="font-size: 0.75rem; color: #94A3B8;">Reversed</span>`}
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Modal: Record Flower Collection
+async function openNewCollectionModal(presetFarmerId = null) {
+  document.getElementById('new-collection-form').reset();
+  document.getElementById('col-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('col-total-display').textContent = '₹0';
+
+  // Load farmers into select dropdown
+  const select = document.getElementById('col-farmer-select');
+  try {
+    const res = await authFetch('/api/farmers?limit=200');
+    if (res.ok) {
+      const data = await res.json();
+      select.innerHTML = '<option value="">-- Choose Registered Farmer --</option>' +
+        data.farmers.map(f => `<option value="${f.id}" ${f.id === presetFarmerId ? 'selected' : ''}>${escapeHtml(f.full_name)} (${f.id}) - ${escapeHtml(f.village)}</option>`).join('');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  document.getElementById('new-collection-modal').classList.remove('hidden');
+}
+
+function closeNewCollectionModal() {
+  document.getElementById('new-collection-modal').classList.add('hidden');
+}
+
+function onCollectionFarmerChange(farmerId) {
+  // Can populate defaults if needed
+}
+
+function calcCollectionTotal() {
+  const weight = parseFloat(document.getElementById('col-weight').value) || 0;
+  const rate = parseFloat(document.getElementById('col-rate').value) || 0;
+  const total = Math.round(weight * rate * 100) / 100;
+  document.getElementById('col-total-display').textContent = `₹${total.toLocaleString('en-IN')}`;
+}
+
+async function handleCreateCollection(e) {
+  e.preventDefault();
+  const farmer_id = document.getElementById('col-farmer-select').value;
+  const collection_date = document.getElementById('col-date').value;
+  const flower_type = document.getElementById('col-flower-type').value;
+  const variety = document.getElementById('col-variety').value;
+  const quality_grade = document.getElementById('col-quality').value;
+  const quantity_kg = document.getElementById('col-weight').value;
+  const rate_per_kg = document.getElementById('col-rate').value;
+  const payment_status = document.getElementById('col-payment-status').value;
+  const payment_mode = document.getElementById('col-payment-mode').value;
+  const notes = document.getElementById('col-notes').value;
+  const capture_gps_latitude = document.getElementById('col-lat').value;
+  const capture_gps_longitude = document.getElementById('col-lng').value;
+
+  const btn = document.getElementById('btn-save-collection');
+  btn.disabled = true;
+
+  try {
+    const res = await authFetch('/api/collections', {
+      method: 'POST',
+      body: JSON.stringify({
+        farmer_id, collection_date, flower_type, variety, quality_grade,
+        quantity_kg, rate_per_kg, payment_status, payment_mode, notes,
+        capture_gps_latitude, capture_gps_longitude
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(`Collection ${data.id} recorded successfully!`, 'success');
+    closeNewCollectionModal();
+
+    if (state.currentView === 'collections') fetchCollectionsList();
+    fetchDashboardStats(false);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Cancel Collection with required audit reason
+async function handleCancelCollectionPrompt(collectionId) {
+  const reason = prompt(`Please enter a mandatory audit reason to reverse/cancel Collection ${collectionId}:`);
+  if (!reason || !reason.trim()) {
+    showToast('Reversal aborted: Reason is required for audit compliance.', 'warn');
+    return;
+  }
+
+  try {
+    const res = await authFetch(`/api/collections/${collectionId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason.trim() })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
     showToast(data.message, 'success');
-    closeAddStockModal();
-    fetchFlowers();
-    fetchStockMovements();
-    fetchDashboardData();
+    fetchCollectionsList();
+    fetchDashboardStats(false);
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-// Record wastage modal
-function openWastageModal(flowerId = null) {
-  const select = document.getElementById('waste-flower-id');
-  select.innerHTML = state.flowers.map(f => `
-    <option value="${f.id}" ${f.id === flowerId ? 'selected' : ''}>
-      ${f.name} (${f.variety}) - Avail: ${f.available_stock}kg
-    </option>
-  `).join('');
-  document.getElementById('wastage-modal').classList.remove('hidden');
-}
-
-function closeWastageModal() {
-  document.getElementById('wastage-modal').classList.add('hidden');
-}
-
-async function handleRecordWastage(e) {
-  e.preventDefault();
-  const flower_id = parseInt(document.getElementById('waste-flower-id').value, 10);
-  const weight = parseFloat(document.getElementById('waste-weight').value);
-  const reason = document.getElementById('waste-reason').value;
-
-  try {
-    const res = await authFetch('/api/inventory/wastage', {
-      method: 'POST',
-      body: JSON.stringify({ flower_id, weight, reason })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    showToast(data.message, 'info');
-    closeWastageModal();
-    fetchFlowers();
-    fetchStockMovements();
-    fetchDashboardData();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-
-// Create new flower variety modal
-function openNewFlowerModal() {
-  document.getElementById('new-flower-modal').classList.remove('hidden');
-}
-
-function closeNewFlowerModal() {
-  document.getElementById('new-flower-modal').classList.add('hidden');
-}
-
-async function handleCreateFlower(e) {
-  e.preventDefault();
-  const name = document.getElementById('new-flower-name').value.trim();
-  const variety = document.getElementById('new-flower-variety').value.trim();
-  const available_stock = parseFloat(document.getElementById('new-flower-stock').value) || 0;
-  const min_stock = parseFloat(document.getElementById('new-flower-min').value) || 5;
-  const unit = document.getElementById('new-flower-unit').value;
-  const selling_rate = parseFloat(document.getElementById('new-flower-sell').value);
-  const purchase_cost = parseFloat(document.getElementById('new-flower-cost').value);
-
-  try {
-    const res = await authFetch('/api/flowers', {
-      method: 'POST',
-      body: JSON.stringify({ name, variety, available_stock, min_stock, unit, selling_rate, purchase_cost })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    showToast(`Added ${name} (${variety}) to catalog!`, 'success');
-    closeNewFlowerModal();
-    fetchFlowers();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
+function startCollectionForFarmer(farmerId) {
+  closeFarmerProfileModal();
+  openNewCollectionModal(farmerId);
 }
 
 // =========================================================
-// 6. PAYMENTS & CREDIT
+// 7. FARMER PROFILE FULL DRAWER
 // =========================================================
-async function fetchPayments() {
+async function openFarmerProfileModal(farmerId) {
+  currentProfileFarmerId = farmerId;
+  state.currentProfileFarmerId = farmerId;
+
   try {
-    const res = await authFetch('/api/payments');
+    const res = await authFetch(`/api/farmers/${farmerId}`);
     if (!res.ok) return;
-    const payments = await res.json();
-    const tbody = document.getElementById('payments-tbody');
-    if (!tbody) return;
+    const f = await res.json();
 
-    tbody.innerHTML = payments.map(p => `
+    document.getElementById('fp-avatar').textContent = (f.full_name || 'F').charAt(0).toUpperCase();
+    document.getElementById('fp-name').textContent = f.full_name;
+    document.getElementById('fp-id').textContent = f.id;
+    document.getElementById('fp-contact').textContent = `Phone: ${f.contact_number}`;
+    document.getElementById('fp-village').textContent = `Village: ${f.village}`;
+
+    const locPill = document.getElementById('fp-loc-pill');
+    locPill.textContent = (f.location_review_status || 'unavailable').toUpperCase();
+    locPill.className = `badge-tag ${f.location_review_status || 'unavailable'}`;
+
+    // Counts
+    document.getElementById('fp-col-count').textContent = f.collections.length;
+    document.getElementById('fp-loc-count').textContent = f.locationHistory.length;
+    document.getElementById('fp-audit-count').textContent = f.auditTrail.length;
+
+    // Render Collections Tab
+    const colTbody = document.getElementById('fp-collections-tbody');
+    colTbody.innerHTML = f.collections.map(c => `
       <tr>
-        <td><span class="badge-code">${p.receipt_no}</span></td>
-        <td><strong>${p.customer_name}</strong></td>
-        <td>${p.invoice_no || 'Direct Settlement'}</td>
-        <td><strong style="color: #15803D;">₹${p.amount.toLocaleString('en-IN')}</strong></td>
-        <td><span class="badge-cat ${p.payment_method.replace(/\s+/g, '')}">${p.payment_method}</span></td>
-        <td>${p.created_at}</td>
-        <td>${p.notes || '—'}</td>
-        <td>${p.recorded_by}</td>
+        <td><span class="badge-code">${c.id}</span></td>
+        <td>${c.collection_date}</td>
+        <td>${escapeHtml(c.flower_type)}</td>
+        <td><strong>${c.quantity_kg} kg</strong></td>
+        <td>₹${c.rate_per_kg}</td>
+        <td><strong>₹${c.total_amount.toLocaleString('en-IN')}</strong></td>
+        <td><span class="badge-tag ${c.payment_status.toLowerCase()}">${c.payment_status}</span></td>
       </tr>
-    `).join('') || `<tr><td colspan="8" style="text-align: center; color: #94A3B8;">No payment records</td></tr>`;
+    `).join('') || `<tr><td colspan="7" style="text-align: center; color: #94A3B8;">No collections for this farmer yet.</td></tr>`;
+
+    // Render Location History Tab (15-Day Historical Audits!)
+    const locTbody = document.getElementById('fp-locations-tbody');
+    locTbody.innerHTML = f.locationHistory.map(l => `
+      <tr>
+        <td>${formatDate(l.capture_timestamp)}</td>
+        <td><strong>${l.latitude.toFixed(5)}, ${l.longitude.toFixed(5)}</strong></td>
+        <td>${escapeHtml(l.source)}</td>
+        <td><span class="badge-tag verified">Verified</span></td>
+        <td>${escapeHtml(l.verified_by || 'Admin')}</td>
+        <td>${escapeHtml(l.review_notes || '—')}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="6" style="text-align: center; color: #94A3B8;">No historical GPS location records logged.</td></tr>`;
+
+    // Render Audit Trail Tab
+    const audTbody = document.getElementById('fp-audit-tbody');
+    audTbody.innerHTML = f.auditTrail.map(a => `
+      <tr>
+        <td>${formatDate(a.timestamp)}</td>
+        <td><strong>${escapeHtml(a.actor_name)}</strong></td>
+        <td><span class="badge-code">${a.action}</span></td>
+        <td>${escapeHtml(a.details)}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="4" style="text-align: center; color: #94A3B8;">No audit trail events found.</td></tr>`;
+
+    // Switch to first tab
+    switchProfileTab('collections');
+
+    document.getElementById('farmer-profile-modal').classList.remove('hidden');
   } catch (err) {
-    console.error(err);
+    showToast('Failed to load farmer profile.', 'error');
   }
 }
 
+function closeFarmerProfileModal() {
+  document.getElementById('farmer-profile-modal').classList.add('hidden');
+}
+
+function switchProfileTab(tabName, btnElem = null) {
+  document.querySelectorAll('.profile-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (btnElem) btnElem.classList.add('active');
+
+  document.getElementById('fp-tab-collections').classList.add('hidden');
+  document.getElementById('fp-tab-locations').classList.add('hidden');
+  document.getElementById('fp-tab-audit').classList.add('hidden');
+
+  document.getElementById(`fp-tab-${tabName}`).classList.remove('hidden');
+}
+
 // =========================================================
-// 7. REPORTS & ANALYTICS
+// 8. REPORTS, EXPORTS & AUDIT LOGS
 // =========================================================
-async function fetchReportsSummary() {
+async function fetchReportsData() {
   try {
     const res = await authFetch('/api/reports/summary');
     if (!res.ok) return;
-    const rep = await res.json();
-
-    document.getElementById('report-sales').textContent = `₹${rep.totalSales.toLocaleString('en-IN')}`;
-    document.getElementById('report-orders').textContent = rep.totalOrders;
-    document.getElementById('report-cash').textContent = `₹${rep.cashCollection.toLocaleString('en-IN')}`;
-    document.getElementById('report-upi').textContent = `₹${rep.upiCollection.toLocaleString('en-IN')}`;
-    document.getElementById('report-profit').textContent = `₹${rep.estimatedGrossProfit.toLocaleString('en-IN')}`;
-
-    // Render Sales Trend Chart
-    renderSalesTrendChart();
-
-    // Render Flower Distribution Donut
-    renderFlowerDistributionChart(rep.flowerBreakdown);
-
-    // Render Performance table
-    const tbody = document.getElementById('report-flowers-tbody');
-    tbody.innerHTML = rep.flowerBreakdown.map(f => {
-      const avgRate = f.total_weight ? Math.round(f.total_sales / f.total_weight) : 0;
-      const estCogs = Math.round(f.total_sales * 0.72);
-      const estMargin = Math.round(f.total_sales - estCogs);
-      return `
-        <tr>
-          <td><strong>${f.flower_name}</strong></td>
-          <td>${f.total_weight} kg</td>
-          <td><strong>₹${f.total_sales.toLocaleString('en-IN')}</strong></td>
-          <td>₹${avgRate} / kg</td>
-          <td>₹${estCogs.toLocaleString('en-IN')}</td>
-          <td><strong style="color: #15803D;">₹${estMargin.toLocaleString('en-IN')}</strong></td>
-        </tr>
-      `;
-    }).join('');
-
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-function renderSalesTrendChart() {
-  const ctx = document.getElementById('salesTrendChart');
-  if (!ctx) return;
-
-  if (state.salesTrendChart) state.salesTrendChart.destroy();
-
-  const labels = ['10 Oct', '11 Oct', '12 Oct', '13 Oct', '14 Oct', '15 Oct', '16 Oct'];
-  const values = [18200, 21400, 19800, 26500, 23900, 29800, 34200];
-
-  state.salesTrendChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Sales Trend (₹)',
-        data: values,
-        borderColor: '#15803D',
-        backgroundColor: 'rgba(21, 128, 61, 0.08)',
-        fill: true,
-        tension: 0.35,
-        pointBackgroundColor: '#15803D',
-        pointRadius: 4
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: {
-          beginAtZero: false,
-          ticks: { callback: v => `₹${v / 1000}k` }
-        }
-      }
-    }
-  });
-}
-
-function renderFlowerDistributionChart(flowerData) {
-  const ctx = document.getElementById('flowerDistributionChart');
-  if (!ctx) return;
-
-  if (state.flowerDistributionChart) state.flowerDistributionChart.destroy();
-
-  const labels = flowerData.map(f => f.flower_name);
-  const dataVals = flowerData.map(f => f.total_sales);
-  const colors = ['#E05375', '#E11D48', '#D97706', '#059669', '#3B82F6', '#8B5CF6'];
-
-  state.flowerDistributionChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: dataVals,
-        backgroundColor: colors
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right' }
-      }
-    }
-  });
-}
-
-// Export Reports to Excel / CSV / PDF
-function exportReport(format) {
-  if (format === 'pdf') {
-    window.print();
-    return;
-  }
-  // Generate CSV data from current customers & flower sales
-  let csv = 'Flower Name,Total Weight Sold (kg),Total Revenue (INR)\n';
-  const rows = document.querySelectorAll('#report-flowers-tbody tr');
-  rows.forEach(tr => {
-    const cols = Array.from(tr.querySelectorAll('td')).map(td => `"${td.textContent.trim().replace(/₹|,/g, '')}"`);
-    if (cols.length >= 3) {
-      csv += `${cols[0]},${cols[1]},${cols[2]}\n`;
-    }
-  });
-
-  const blob = new Blob([csv], { type: format === 'excel' ? 'application/vnd.ms-excel' : 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `fresh_blooms_report_${Date.now()}.${format === 'excel' ? 'xls' : 'csv'}`;
-  a.click();
-  showToast(`Report exported as ${format.toUpperCase()}`, 'success');
-}
-
-// =========================================================
-// 8. STAFF & ROLES
-// =========================================================
-async function fetchStaffList() {
-  try {
-    const res = await authFetch('/api/users');
-    if (!res.ok) return;
-    const users = await res.json();
-    const tbody = document.getElementById('staff-tbody');
-    if (!tbody) return;
-
-    tbody.innerHTML = users.map(u => `
-      <tr>
-        <td>#${u.id}</td>
-        <td><strong>${u.name}</strong></td>
-        <td>${u.username}</td>
-        <td>${u.mobile || '—'}</td>
-        <td><span class="badge-cat ${u.role}">${u.role.replace('_', ' ')}</span></td>
-        <td><code>${u.pin || '****'}</code></td>
-        <td>
-          <span class="badge-status ${u.active ? 'ok' : 'low'}">
-            ${u.active ? 'Active' : 'Inactive'}
-          </span>
-        </td>
-        <td>
-          <button class="btn btn-outline btn-xs" onclick="toggleStaffActive(${u.id}, ${u.active ? 0 : 1})">
-            ${u.active ? 'Deactivate' : 'Activate'}
-          </button>
-        </td>
-      </tr>
-    `).join('');
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function toggleStaffActive(userId, newActiveState) {
-  try {
-    const res = await authFetch(`/api/users/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ active: newActiveState })
-    });
-    if (!res.ok) throw new Error('Failed to update status');
-    showToast('Staff status updated', 'success');
-    fetchStaffList();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-
-function openNewStaffModal() {
-  document.getElementById('new-staff-modal').classList.remove('hidden');
-}
-
-function closeNewStaffModal() {
-  document.getElementById('new-staff-modal').classList.add('hidden');
-}
-
-async function handleCreateStaff(e) {
-  e.preventDefault();
-  const name = document.getElementById('staff-name').value.trim();
-  const username = document.getElementById('staff-username').value.trim();
-  const mobile = document.getElementById('staff-mobile').value.trim();
-  const role = document.getElementById('staff-role').value;
-  const pin = document.getElementById('staff-pin').value.trim();
-  const password = document.getElementById('staff-password').value;
-
-  try {
-    const res = await authFetch('/api/users', {
-      method: 'POST',
-      body: JSON.stringify({ name, username, mobile, role, pin, password })
-    });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
 
-    showToast(`Staff account for ${name} created!`, 'success');
-    closeNewStaffModal();
-    fetchStaffList();
+    document.getElementById('rep-total-kg').textContent = `${data.summary.totalKg.toLocaleString('en-IN')} kg`;
+    document.getElementById('rep-total-orders').textContent = `${data.summary.totalCollections} harvest intake batches`;
+    document.getElementById('rep-disbursed').textContent = `₹${data.summary.paidAmount.toLocaleString('en-IN')}`;
+    document.getElementById('rep-pending').textContent = `₹${data.summary.pendingAmount.toLocaleString('en-IN')}`;
+    document.getElementById('rep-active-farmers').textContent = data.summary.activeFarmers;
+
+    // Flower breakdown
+    const flowerTbody = document.getElementById('report-flowers-tbody');
+    flowerTbody.innerHTML = data.flowerBreakdown.map(f => `
+      <tr>
+        <td><strong>${escapeHtml(f.flower_type)}</strong></td>
+        <td><strong>${f.total_kg} kg</strong></td>
+        <td>₹${f.total_amount.toLocaleString('en-IN')}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="3" style="text-align: center; color: #94A3B8;">No flower data.</td></tr>`;
+
+    // Village breakdown
+    const villageTbody = document.getElementById('report-villages-tbody');
+    villageTbody.innerHTML = data.villageBreakdown.map(v => `
+      <tr>
+        <td><strong>${escapeHtml(v.village)}</strong></td>
+        <td>${v.collections_count}</td>
+        <td><strong>${v.total_kg} kg</strong></td>
+        <td>₹${v.total_amount.toLocaleString('en-IN')}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="4" style="text-align: center; color: #94A3B8;">No village data.</td></tr>`;
+
   } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-
-// =========================================================
-// 9. SETTINGS & AUDIT LOGS
-// =========================================================
-async function fetchSettings() {
-  try {
-    const res = await authFetch('/api/settings');
-    if (!res.ok) return;
-    const s = await res.json();
-
-    if (s.shop_name) document.getElementById('setting-shop-name').value = s.shop_name;
-    if (s.tagline) document.getElementById('setting-tagline').value = s.tagline;
-    if (s.address) document.getElementById('setting-address').value = s.address;
-    if (s.phone) document.getElementById('setting-phone').value = s.phone;
-    if (s.gstin) document.getElementById('setting-gstin').value = s.gstin;
-    if (s.invoice_prefix) document.getElementById('setting-prefix').value = s.invoice_prefix;
-    if (s.currency) document.getElementById('setting-currency').value = s.currency;
-    if (s.footer_note) document.getElementById('setting-footer').value = s.footer_note;
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function handleSaveSettings(e) {
-  e.preventDefault();
-  const payload = {
-    shop_name: document.getElementById('setting-shop-name').value,
-    tagline: document.getElementById('setting-tagline').value,
-    address: document.getElementById('setting-address').value,
-    phone: document.getElementById('setting-phone').value,
-    gstin: document.getElementById('setting-gstin').value,
-    invoice_prefix: document.getElementById('setting-prefix').value,
-    currency: document.getElementById('setting-currency').value,
-    footer_note: document.getElementById('setting-footer').value
-  };
-
-  try {
-    const res = await authFetch('/api/settings', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error('Failed to update settings');
-    showToast('Store settings saved successfully!', 'success');
-  } catch (err) {
-    showToast(err.message, 'error');
+    console.error(err);
   }
 }
 
 async function fetchAuditLogs() {
+  const page = state.auditPagination.page;
   try {
-    const res = await authFetch('/api/audit-logs');
+    const res = await authFetch(`/api/audit-logs?page=${page}&limit=${state.auditPagination.limit}`);
     if (!res.ok) return;
-    const logs = await res.json();
-    const tbody = document.getElementById('audit-tbody');
-    if (!tbody) return;
+    const data = await res.json();
+    state.auditPagination = data.pagination;
 
-    tbody.innerHTML = logs.map(l => `
+    const tbody = document.getElementById('audit-logs-tbody');
+    tbody.innerHTML = data.logs.map(l => `
       <tr>
-        <td style="font-family: monospace; font-size: 0.8rem;">${l.created_at}</td>
-        <td><strong>${l.user_name}</strong></td>
-        <td><span class="badge-cat ${l.user_role}">${l.user_role}</span></td>
-        <td><strong style="color: #15803D;">${l.action}</strong></td>
-        <td>${l.details}</td>
+        <td><code>${formatDate(l.timestamp)}</code></td>
+        <td><strong>${escapeHtml(l.actor_name)}</strong></td>
+        <td><span class="badge-code">${l.action}</span></td>
+        <td>${escapeHtml(l.entity_type)}</td>
+        <td>${l.entity_id ? `<span class="badge-code">${l.entity_id}</span>` : '—'}</td>
+        <td>${escapeHtml(l.details)}</td>
+        <td><small style="color: #64748B;">${escapeHtml(l.ip_address || 'Internal')}</small></td>
       </tr>
-    `).join('') || `<tr><td colspan="5" style="text-align: center; color: #94A3B8;">No audit logs</td></tr>`;
+    `).join('') || `<tr><td colspan="7" style="text-align: center; color: #94A3B8; padding: 24px;">No audit trail events logged yet.</td></tr>`;
+
+    renderPaginationControls('audit-pagination', data.pagination, (p) => {
+      state.auditPagination.page = p;
+      fetchAuditLogs();
+    });
+
   } catch (err) {
     console.error(err);
   }
 }
 
+function exportCollectionsCsv() {
+  window.open('/api/reports/export/collections-csv', '_blank');
+}
+
+function exportFarmersCsv() {
+  window.open('/api/reports/export/farmers-csv', '_blank');
+}
+
+function exportLocationsCsv() {
+  window.open('/api/reports/export/farmers-csv', '_blank');
+}
+
 // =========================================================
-// HELPER UTILITIES
+// 9. UTILITIES & PAGINATION
 // =========================================================
 async function authFetch(url, options = {}) {
   options.headers = options.headers || {};
@@ -1715,6 +1277,51 @@ async function authFetch(url, options = {}) {
     options.headers['Content-Type'] = 'application/json';
   }
   return fetch(url, options);
+}
+
+function renderPaginationControls(containerId, pagination, onPageChange) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (pagination.totalPages <= 1) {
+    container.innerHTML = `<span>Page ${pagination.page} of 1 (${pagination.total} records)</span>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <span>Showing page ${pagination.page} of ${pagination.totalPages} (${pagination.total} records)</span>
+    <div class="pagination-controls">
+      <button class="btn btn-outline btn-xs" ${pagination.page <= 1 ? 'disabled' : ''} id="${containerId}-prev">
+        ← Previous
+      </button>
+      <button class="btn btn-outline btn-xs" ${pagination.page >= pagination.totalPages ? 'disabled' : ''} id="${containerId}-next">
+        Next →
+      </button>
+    </div>
+  `;
+
+  document.getElementById(`${containerId}-prev`)?.addEventListener('click', () => onPageChange(pagination.page - 1));
+  document.getElementById(`${containerId}-next`)?.addEventListener('click', () => onPageChange(pagination.page + 1));
+}
+
+function formatDate(isoStr) {
+  if (!isoStr) return '—';
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return isoStr;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function showToast(message, type = 'info') {
