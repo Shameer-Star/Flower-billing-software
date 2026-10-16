@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const initSqlJs = require('sql.js');
+const initSqlJs = require('sql.js/dist/sql-wasm-inline.js');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
