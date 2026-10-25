@@ -144,12 +144,19 @@ function round2(n) {
 }
 
 function cleanPhone(value) {
-  const digits = String(value || '').replace(/\D/g, '');
-  return digits.length === 10 ? digits : digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : null;
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    digits = digits.slice(2);
+  } else if (digits.length === 13 && digits.startsWith('091')) {
+    digits = digits.slice(3);
+  }
+  return digits.length === 10 ? digits : null;
 }
 
 function optionalCoords(latitude, longitude) {
-  const blank = v => v === undefined || v === null || v === '';
+  const blank = v => v === undefined || v === null || v === '' || (typeof v === 'string' && v.trim() === '');
   if (blank(latitude) && blank(longitude)) return { lat: null, lng: null, ok: true };
   const lat = num(latitude);
   const lng = num(longitude);
@@ -378,7 +385,7 @@ app.get('/api/farmers', authenticateAdmin, (req, res) => {
   refreshLocationReviewStatuses();
   const search = str(req.query.search, 100);
   const status = str(req.query.status);
-  const locStatus = str(req.query.location_status);
+  const locStatus = str(req.query.location_status) || str(req.query.reviewStatus);
   const village = str(req.query.village);
   const district = str(req.query.district);
   const sortBy = str(req.query.sort_by) || 'created_at';
@@ -427,8 +434,12 @@ app.get('/api/farmers', authenticateAdmin, (req, res) => {
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
+  const villageRows = query('SELECT DISTINCT village FROM farmers WHERE village IS NOT NULL AND village != "" ORDER BY village ASC');
+  const villages = villageRows.map(r => r.village);
+
   res.json({
     farmers,
+    villages,
     pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
   });
 });

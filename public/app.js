@@ -524,25 +524,29 @@ async function fetchFarmersList() {
   const search = document.getElementById('farmer-search-input')?.value || '';
   const village = document.getElementById('farmer-village-filter')?.value || '';
   const reviewStatus = document.getElementById('farmer-review-filter')?.value || '';
-  const page = state.farmerPagination.page;
+  const page = state.farmerPagination?.page || 1;
+  const limit = state.farmerPagination?.limit || 15;
 
   try {
-    const res = await authFetch(`/api/farmers?search=${encodeURIComponent(search)}&village=${encodeURIComponent(village)}&reviewStatus=${encodeURIComponent(reviewStatus)}&page=${page}&limit=${state.farmerPagination.limit}`);
+    const res = await authFetch(`/api/farmers?search=${encodeURIComponent(search)}&village=${encodeURIComponent(village)}&reviewStatus=${encodeURIComponent(reviewStatus)}&page=${page}&limit=${limit}`);
     if (!res.ok) return;
 
     const data = await res.json();
-    state.farmers = data.farmers;
-    state.villages = data.villages;
-    state.farmerPagination = data.pagination;
+    state.farmers = data.farmers || [];
+    state.villages = data.villages || [];
+    state.farmerPagination = data.pagination || { page: 1, limit: 15, total: 0, totalPages: 0 };
 
-    // Update village filter dropdown options
-    updateVillageFilterDropdown(data.villages);
+    // Update village filter dropdown options safely
+    updateVillageFilterDropdown(state.villages);
 
     // Records counter
-    document.getElementById('farmers-records-counter').textContent = `${data.pagination.total} registered farmers`;
+    const counter = document.getElementById('farmers-records-counter');
+    if (counter) {
+      counter.textContent = `${state.farmerPagination.total} registered farmers`;
+    }
 
-    renderFarmersTable(data.farmers);
-    renderPaginationControls('farmers-pagination', data.pagination, (p) => {
+    renderFarmersTable(state.farmers);
+    renderPaginationControls('farmers-pagination', state.farmerPagination, (p) => {
       state.farmerPagination.page = p;
       fetchFarmersList();
     });
@@ -555,9 +559,10 @@ async function fetchFarmersList() {
 function updateVillageFilterDropdown(villages) {
   const select = document.getElementById('farmer-village-filter');
   if (!select) return;
+  const list = Array.isArray(villages) ? villages : [];
   const currentVal = select.value;
   select.innerHTML = '<option value="">All Villages</option>' +
-    villages.map(v => `<option value="${escapeHtml(v)}" ${v === currentVal ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('');
+    list.map(v => `<option value="${escapeHtml(v)}" ${v === currentVal ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('');
 }
 
 function onFarmerSearchChange(val) {
@@ -600,21 +605,27 @@ function renderFarmersTable(farmers) {
     const btnLoc = state.lang === 'ta' ? '📍 இருப்பிடம்' : '📍 Location';
     const btnHarvest = state.lang === 'ta' ? '🌸 வரவு' : '🌸 Harvest';
 
+    const totalKg = Number(f.total_collected_kg || 0).toLocaleString('en-IN');
+    const totalPayout = Number(f.total_payout || 0).toLocaleString('en-IN');
+
     return `
       <tr>
-        <td><span class="badge-code">${f.id}</span></td>
-        <td><strong>${escapeHtml(f.full_name)}</strong></td>
+        <td><span class="badge-code">${escapeHtml(f.id)}</span></td>
+        <td>
+          <strong>${escapeHtml(f.full_name)}</strong>
+          ${f.name_ta ? `<br><small class="text-subtle">${escapeHtml(f.name_ta)}</small>` : ''}
+        </td>
         <td>${escapeHtml(f.contact_number)}</td>
         <td>${escapeHtml(f.village)}</td>
-        <td><span class="badge-tag ${locStatus}">${locStatusLabel}</span></td>
-        <td><strong>${f.total_collected_kg} kg</strong></td>
-        <td><strong>₹${f.total_payout.toLocaleString('en-IN')}</strong></td>
-        <td>${f.last_collection_date || '—'}</td>
+        <td><span class="badge-tag ${locStatus}">${escapeHtml(locStatusLabel)}</span></td>
+        <td><strong>${totalKg} kg</strong></td>
+        <td><strong>₹${totalPayout}</strong></td>
+        <td>${escapeHtml(f.last_collection_date || '—')}</td>
         <td>
           <div style="display: flex; gap: 6px;">
-            <button class="btn btn-outline btn-xs" onclick="openFarmerProfileModal('${f.id}')" title="View Full Profile">${btnProfile}</button>
-            <button class="btn btn-outline btn-xs" onclick="openLocationReviewForFarmer('${f.id}')" title="Review 15-Day Location">${btnLoc}</button>
-            <button class="btn btn-primary btn-xs" onclick="startCollectionForFarmer('${f.id}')" title="Record Flower Harvest">${btnHarvest}</button>
+            <button class="btn btn-outline btn-xs" onclick="openFarmerProfileModal('${escapeHtml(f.id)}')" title="View Full Profile">${btnProfile}</button>
+            <button class="btn btn-outline btn-xs" onclick="openLocationReviewForFarmer('${escapeHtml(f.id)}')" title="Review 15-Day Location">${btnLoc}</button>
+            <button class="btn btn-primary btn-xs" onclick="startCollectionForFarmer('${escapeHtml(f.id)}')" title="Record Flower Harvest">${btnHarvest}</button>
           </div>
         </td>
       </tr>
@@ -624,43 +635,66 @@ function renderFarmersTable(farmers) {
 
 // Modal: Register Farmer
 function openNewFarmerModal() {
-  document.getElementById('new-farmer-form').reset();
-  document.getElementById('new-farmer-modal').classList.remove('hidden');
+  const form = document.getElementById('new-farmer-form');
+  if (form) form.reset();
+  document.getElementById('new-farmer-modal')?.classList.remove('hidden');
 }
 
 function closeNewFarmerModal() {
-  document.getElementById('new-farmer-modal').classList.add('hidden');
+  document.getElementById('new-farmer-modal')?.classList.add('hidden');
 }
 
 async function handleCreateFarmer(e) {
   e.preventDefault();
   const full_name = document.getElementById('farmer-name').value.trim();
+  const name_ta = document.getElementById('farmer-name-ta')?.value.trim() || '';
   const contact_number = document.getElementById('farmer-contact').value.trim();
   const village = document.getElementById('farmer-village').value.trim();
   const address = document.getElementById('farmer-address').value.trim();
-  const latitude = document.getElementById('farmer-lat').value;
-  const longitude = document.getElementById('farmer-lng').value;
+  const latitude = document.getElementById('farmer-lat').value.trim();
+  const longitude = document.getElementById('farmer-lng').value.trim();
   const notes = document.getElementById('farmer-notes').value.trim();
 
+  // Validate latitude / longitude if partially entered
+  if ((latitude && !longitude) || (!latitude && longitude)) {
+    showToast('Please provide both latitude and longitude, or leave both empty.', 'warn');
+    return;
+  }
+
   const btn = document.getElementById('btn-save-farmer');
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
 
   try {
     const res = await authFetch('/api/farmers', {
       method: 'POST',
-      body: JSON.stringify({ full_name, contact_number, village, address, latitude, longitude, notes })
+      body: JSON.stringify({ full_name, name_ta, contact_number, village, address, latitude, longitude, notes })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    if (!res.ok) throw new Error(data.error || 'Failed to register farmer');
 
     showToast(`Farmer ${data.full_name} (${data.id}) registered successfully!`, 'success');
     closeNewFarmerModal();
-    fetchFarmersList();
+
+    // Reset search and filters so newly registered farmer is immediately visible
+    const searchInput = document.getElementById('farmer-search-input');
+    if (searchInput) searchInput.value = '';
+    const villageFilter = document.getElementById('farmer-village-filter');
+    if (villageFilter) villageFilter.value = '';
+    const reviewFilter = document.getElementById('farmer-review-filter');
+    if (reviewFilter) reviewFilter.value = '';
+    state.farmerPagination.page = 1;
+
+    // Navigate to farmers view so user immediately sees their registered farmer
+    if (state.currentView !== 'farmers') {
+      navigateTo('farmers');
+    } else {
+      fetchFarmersList();
+    }
     fetchDashboardStats(false);
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -993,14 +1027,16 @@ async function openNewCollectionModal(presetFarmerId = null) {
   // Load farmers into select dropdown
   const select = document.getElementById('col-farmer-select');
   try {
-    const res = await authFetch('/api/farmers?limit=200');
+    let res = await authFetch('/api/farmers/options');
+    if (!res.ok) res = await authFetch('/api/farmers?limit=500');
     if (res.ok) {
       const data = await res.json();
+      const list = data.farmers || [];
       select.innerHTML = '<option value="">-- Choose Registered Farmer --</option>' +
-        data.farmers.map(f => `<option value="${f.id}" ${f.id === presetFarmerId ? 'selected' : ''}>${escapeHtml(f.full_name)} (${f.id}) - ${escapeHtml(f.village)}</option>`).join('');
+        list.map(f => `<option value="${f.id}" ${f.id === presetFarmerId ? 'selected' : ''}>${escapeHtml(f.full_name)} (${f.id}) - ${escapeHtml(f.village)}</option>`).join('');
     }
   } catch (e) {
-    console.error(e);
+    console.error('Failed to load farmer options for collection:', e);
   }
 
   document.getElementById('new-collection-modal').classList.remove('hidden');

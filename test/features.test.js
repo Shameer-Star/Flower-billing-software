@@ -209,3 +209,34 @@ test('feature: dashboard statistics metrics derived from real database records',
   assert.ok(dashRes.data.audit.last_audit_date);
   assert.ok(dashRes.data.audit.next_scheduled_audit_date);
 });
+
+test('feature: farmer registration with phone variations and villages in GET /api/farmers', async () => {
+  // Test registration with 11-digit leading 0 phone
+  const res = await api('/api/farmers', {
+    method: 'POST',
+    body: {
+      full_name: 'Kandasamy Velan',
+      name_ta: 'கந்தசாமி வேலன்',
+      contact_number: '09443123456',
+      village: 'Chettipalayam',
+      district: 'Coimbatore',
+      state: 'Tamil Nadu'
+    }
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.data.contact_number, '9443123456');
+  assert.equal(res.data.village, 'Chettipalayam');
+
+  // Verify GET /api/farmers returns villages array including Chettipalayam
+  const listRes = await api('/api/farmers');
+  assert.equal(listRes.status, 200);
+  assert.ok(Array.isArray(listRes.data.villages));
+  assert.ok(listRes.data.villages.includes('Chettipalayam'));
+
+  // Verify farmer is listed in farmers array
+  const found = listRes.data.farmers.find(f => f.id === res.data.id);
+  assert.ok(found);
+  assert.equal(found.full_name, 'Kandasamy Velan');
+  assert.equal(found.name_ta, 'கந்தசாமி வேலன்');
+});
+
