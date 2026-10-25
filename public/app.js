@@ -14,6 +14,12 @@ const state = {
   dashboardStats: null,
   mapInstance: null,
   mapMarkers: [],
+  mappedFarmers: [],
+  allFarmers: [],
+  activeLocationTab: 'all',
+  mapClickListenerAttached: false,
+  tempMapMarker: null,
+  manualEntryMode: 'existing',
   currentProfileFarmerId: null,
   farmerPagination: { page: 1, limit: 15, total: 0 },
   collectionPagination: { page: 1, limit: 15, total: 0 },
@@ -703,7 +709,7 @@ async function handleCreateFarmer(e) {
 // =========================================================
 function initLocationsMapView() {
   loadMapData();
-  fetchDueLocationsList();
+  loadAllMappedFarmersAndDue();
 }
 
 async function loadMapData() {
@@ -714,9 +720,15 @@ async function loadMapData() {
     if (!res.ok) return;
     const data = await res.json();
 
-    document.getElementById('map-active-count').textContent = `Showing ${data.count} mapped farmer(s) with verified GPS`;
+    const count = data.count !== undefined ? data.count : (data.farmers || []).length;
+    state.mappedFarmers = data.farmers || [];
 
-    renderLeafletMap(data.farmers);
+    const countElem = document.getElementById('map-active-count');
+    if (countElem) {
+      countElem.textContent = `Showing ${count} mapped farmer(s) with verified GPS`;
+    }
+
+    renderLeafletMap(state.mappedFarmers);
   } catch (err) {
     console.error('Failed to load map data:', err);
   }
@@ -735,11 +747,23 @@ function renderLeafletMap(farmers) {
     }).addTo(state.mapInstance);
   }
 
+  // Attach map click listener for manual coordinate picking
+  if (!state.mapClickListenerAttached) {
+    state.mapClickListenerAttached = true;
+    state.mapInstance.on('click', function(e) {
+      handleMapClick(e.latlng.lat, e.latlng.lng);
+    });
+  }
+
   // Clear previous markers
   state.mapMarkers.forEach(m => m.remove());
   state.mapMarkers = [];
+  if (state.tempMapMarker) {
+    state.tempMapMarker.remove();
+    state.tempMapMarker = null;
+  }
 
-  if (farmers.length === 0) {
+  if (!farmers || farmers.length === 0) {
     return;
   }
 
@@ -768,19 +792,27 @@ function renderLeafletMap(farmers) {
       const popupHtml = `
         <div class="custom-map-popup">
           <h4>${escapeHtml(f.full_name)} (${f.id})</h4>
+          ${f.name_ta ? `<p style="color: #64748B; font-size: 0.75rem;">${escapeHtml(f.name_ta)}</p>` : ''}
           <p><strong>Village:</strong> ${escapeHtml(f.village)}</p>
           <p><strong>Contact:</strong> ${escapeHtml(f.contact_number)}</p>
+          <p><strong>Source:</strong> <span class="badge-tag" style="background: #EEF2F6; color: #334155;">${escapeHtml(f.location_source || 'manual')}</span></p>
           <p><strong>15-Day Status:</strong> <span class="badge-tag ${locStatus}">${locStatus.toUpperCase()}</span></p>
+          <p><strong>GPS:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</p>
           <p><strong>Last Reviewed:</strong> ${f.last_location_reviewed_at || 'Registration'}</p>
           <p><strong>Next Due:</strong> ${f.next_location_review_due_at || '—'}</p>
-          <p><strong>Total Harvest:</strong> ${f.total_collected_kg} kg</p>
-          <button class="btn btn-primary btn-xs popup-btn" onclick="openLocationReviewForFarmer('${f.id}')">
-            📍 Update / Verify Location
-          </button>
+          <div style="display: flex; gap: 6px; margin-top: 8px;">
+            <button class="btn btn-primary btn-xs" style="flex: 1;" onclick="openManualLocationModalWithFarmer('${f.id}')">
+              ✏️ Set Location
+            </button>
+            <button class="btn btn-outline btn-xs" style="flex: 1;" onclick="startCollectionForFarmer('${f.id}')">
+              🌸 Record Intake
+            </button>
+          </div>
         </div>
       `;
 
       marker.bindPopup(popupHtml);
+      marker.farmerId = f.id;
       state.mapMarkers.push(marker);
     }
   });
@@ -790,50 +822,426 @@ function renderLeafletMap(farmers) {
   }
 
   // Invalidate size to ensure proper tile rendering inside dynamic containers
-  setTimeout(() => state.mapInstance.invalidateSize(), 200);
+  setTimeout(() => state.mapInstance?.invalidateSize(), 200);
 }
 
-async function fetchDueLocationsList() {
+// Handle clicking anywhere on the interactive map
+function handleMapClick(lat, lng) {
+  const roundedLat = parseFloat(lat.toFixed(6));
+  const roundedLng = parseFloat(lng.toFixed(6));
+
+  if (state.tempMapMarker) {
+    state.tempMapMarker.remove();
+  }
+
+  const tempIcon = L.divIcon({
+    className: 'custom-temp-pin',
+    html: `<div style="background-color: #2563EB; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #FFFFFF; box-shadow: 0 0 10px rgba(37,99,235,0.8); animation: pulsePin 1.5s infinite;"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+
+  state.tempMapMarker = L.marker([lat, lng], { icon: tempIcon }).addTo(state.mapInstance);
+
+  const popupContent = `
+    <div class="custom-map-popup" style="min-width: 220px;">
+      <h4 style="color: #1E40AF; margin-bottom: 6px;">📍 Selected Map Location</h4>
+      <p style="margin-bottom: 2px;"><strong>Lat:</strong> ${roundedLat}</p>
+      <p style="margin-bottom: 8px;"><strong>Lng:</strong> ${roundedLng}</p>
+      <button class="btn btn-primary btn-xs btn-block" onclick="openManualLocationModalWithCoords(${roundedLat}, ${roundedLng})">
+        + Set / Add Farmer Location Here
+      </button>
+    </div>
+  `;
+
+  state.tempMapMarker.bindPopup(popupContent).openPopup();
+}
+
+function resetMapView() {
+  if (!state.mapInstance) return;
+  const bounds = [];
+  state.mapMarkers.forEach(m => bounds.push(m.getLatLng()));
+  if (bounds.length > 0) {
+    state.mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  } else {
+    state.mapInstance.setView([11.1271, 78.6569], 7);
+  }
+}
+
+function focusFarmerOnMap(farmerId) {
+  const farmer = (state.allFarmers || []).find(f => f.id === farmerId) || (state.mappedFarmers || []).find(f => f.id === farmerId);
+  if (!farmer || !farmer.latitude || !farmer.longitude || !state.mapInstance) return;
+
+  // Scroll map card into view
+  const mapContainer = document.getElementById('farmers-leaflet-map');
+  if (mapContainer) {
+    mapContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  const lat = parseFloat(farmer.latitude);
+  const lng = parseFloat(farmer.longitude);
+
+  state.mapInstance.flyTo([lat, lng], 14, { duration: 1 });
+
+  // Open the marker popup
+  setTimeout(() => {
+    const marker = state.mapMarkers.find(m => m.farmerId === farmerId);
+    if (marker) {
+      marker.openPopup();
+    }
+  }, 1050);
+}
+
+// Switch between 'all' and 'due' mapped farmers table list
+function switchLocationListTab(tab) {
+  state.activeLocationTab = tab;
+
+  const btnAll = document.getElementById('btn-tab-all-mapped');
+  const btnDue = document.getElementById('btn-tab-due-mapped');
+  const heading = document.getElementById('locations-table-heading');
+
+  if (tab === 'all') {
+    btnAll?.classList.add('btn-primary');
+    btnAll?.classList.remove('btn-outline');
+    btnDue?.classList.remove('btn-primary');
+    btnDue?.classList.add('btn-outline');
+    if (heading) heading.textContent = 'Mapped Farmers & Fortnightly Location Registry';
+  } else {
+    btnDue?.classList.add('btn-primary');
+    btnDue?.classList.remove('btn-outline');
+    btnAll?.classList.remove('btn-primary');
+    btnAll?.classList.add('btn-outline');
+    if (heading) heading.textContent = 'Farmers Due or Overdue for 15-Day Location Review';
+  }
+
+  renderMappedFarmersTable();
+}
+
+async function loadAllMappedFarmersAndDue() {
+  try {
+    const res = await authFetch('/api/farmers?limit=250');
+    if (!res.ok) return;
+    const data = await res.json();
+    state.allFarmers = data.farmers || [];
+
+    // Populate village filter dropdown
+    const villageFilter = document.getElementById('map-farmers-village-filter');
+    if (villageFilter) {
+      const currentVal = villageFilter.value;
+      const villages = Array.from(new Set(state.allFarmers.map(f => f.village).filter(Boolean))).sort();
+      villageFilter.innerHTML = '<option value="">All Villages</option>' +
+        villages.map(v => `<option value="${escapeHtml(v)}" ${v === currentVal ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('');
+    }
+
+    // Populate manual location farmer select dropdown
+    populateManualFarmerSelect();
+
+    renderMappedFarmersTable();
+  } catch (err) {
+    console.error('Failed to load farmers for location registry:', err);
+  }
+}
+
+function populateManualFarmerSelect(selectedFarmerId = null) {
+  const select = document.getElementById('manual-farmer-select');
+  if (!select) return;
+
+  const farmers = (state.allFarmers || []).slice().sort((a, b) => a.full_name.localeCompare(b.full_name));
+  select.innerHTML = '<option value="">-- Choose Registered Farmer --</option>' +
+    farmers.map(f => {
+      const hasCoords = f.latitude !== null && f.longitude !== null;
+      const locLabel = hasCoords ? `[Mapped: ${parseFloat(f.latitude).toFixed(3)}, ${parseFloat(f.longitude).toFixed(3)}]` : '[No GPS]';
+      return `<option value="${f.id}" ${f.id === selectedFarmerId ? 'selected' : ''}>${escapeHtml(f.full_name)} (${f.id}) - ${escapeHtml(f.village)} ${locLabel}</option>`;
+    }).join('');
+}
+
+function renderMappedFarmersTable() {
   const tbody = document.getElementById('due-locations-tbody');
   if (!tbody) return;
 
-  try {
-    const res = await authFetch('/api/farmers?limit=100');
-    if (!res.ok) return;
-    const data = await res.json();
+  const searchTerm = (document.getElementById('map-farmers-search')?.value || '').trim().toLowerCase();
+  const villageFilter = document.getElementById('map-farmers-village-filter')?.value || '';
+  const sourceFilter = document.getElementById('map-farmers-source-filter')?.value || '';
 
-    const dueFarmers = data.farmers.filter(f => f.location_review_status === 'overdue' || f.location_review_status === 'due_soon' || f.location_review_status === 'unavailable');
+  const allMapped = (state.allFarmers || []).filter(f => f.latitude !== null && f.longitude !== null);
+  const dueFarmers = (state.allFarmers || []).filter(f =>
+    f.location_review_status === 'overdue' || f.location_review_status === 'due_soon' || f.location_review_status === 'unavailable'
+  );
 
-    if (dueFarmers.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="8" style="text-align: center; color: #166534; padding: 24px; font-weight: 600;">
-            ✓ All registered farmer locations are currently up to date within the 15-day review cycle!
-          </td>
-        </tr>
-      `;
-      return;
-    }
+  // Update badge counters
+  const allCountElem = document.getElementById('all-mapped-count');
+  if (allCountElem) allCountElem.textContent = allMapped.length;
+  const dueCountElem = document.getElementById('due-mapped-count');
+  if (dueCountElem) dueCountElem.textContent = dueFarmers.length;
 
-    tbody.innerHTML = dueFarmers.map(f => `
+  let list = state.activeLocationTab === 'all' ? allMapped : dueFarmers;
+
+  // Apply filters
+  if (searchTerm) {
+    list = list.filter(f =>
+      (f.full_name && f.full_name.toLowerCase().includes(searchTerm)) ||
+      (f.id && f.id.toLowerCase().includes(searchTerm)) ||
+      (f.village && f.village.toLowerCase().includes(searchTerm)) ||
+      (f.contact_number && f.contact_number.includes(searchTerm))
+    );
+  }
+  if (villageFilter) {
+    list = list.filter(f => f.village === villageFilter);
+  }
+  if (sourceFilter) {
+    list = list.filter(f => (f.location_source || '').toLowerCase().includes(sourceFilter.toLowerCase()));
+  }
+
+  const counterElem = document.getElementById('mapped-farmers-counter');
+  if (counterElem) {
+    counterElem.textContent = `${list.length} farmer(s) listed`;
+  }
+
+  if (list.length === 0) {
+    const emptyMsg = state.activeLocationTab === 'all'
+      ? 'No mapped farmers found matching criteria. Click "+ Manual Location Entry" above to add map locations.'
+      : '✓ All registered farmer locations are currently up to date within the 15-day review cycle!';
+    tbody.innerHTML = `
       <tr>
-        <td><strong>${escapeHtml(f.full_name)}</strong> <small>(${f.id})</small></td>
-        <td>${escapeHtml(f.village)}</td>
-        <td>${escapeHtml(f.contact_number)}</td>
-        <td>${f.latitude && f.longitude ? `${f.latitude.toFixed(4)}, ${f.longitude.toFixed(4)}` : '<span style="color: #64748B;">No GPS</span>'}</td>
-        <td>${f.last_location_reviewed_at || 'Never'}</td>
-        <td><strong>${f.next_location_review_due_at || 'Immediate'}</strong></td>
-        <td><span class="badge-tag ${f.location_review_status}">${f.location_review_status.toUpperCase()}</span></td>
-        <td>
-          <button class="btn btn-outline btn-xs" onclick="openLocationReviewForFarmer('${f.id}')">
-            📍 Review & Verify
-          </button>
+        <td colspan="9" style="text-align: center; color: #475569; padding: 28px; font-weight: 500;">
+          ${emptyMsg}
         </td>
       </tr>
-    `).join('');
+    `;
+    return;
+  }
 
+  tbody.innerHTML = list.map(f => {
+    const hasGPS = f.latitude !== null && f.longitude !== null;
+    const latStr = hasGPS ? parseFloat(f.latitude).toFixed(4) : null;
+    const lngStr = hasGPS ? parseFloat(f.longitude).toFixed(4) : null;
+    const sourceDisplay = f.location_source === 'manual' ? 'Manual Entry' : (f.location_source || 'Admin');
+    const status = f.location_review_status || 'unavailable';
+
+    return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(f.full_name)}</strong>
+          <small style="color: #64748B;">(${f.id})</small>
+          ${f.name_ta ? `<div style="font-size: 0.72rem; color: #94A3B8;">${escapeHtml(f.name_ta)}</div>` : ''}
+        </td>
+        <td>${escapeHtml(f.village)}</td>
+        <td>${escapeHtml(f.contact_number)}</td>
+        <td>
+          ${hasGPS ? `<code style="font-size: 0.78rem; background: #EEF2F6; padding: 2px 5px; border-radius: 4px;">${latStr}, ${lngStr}</code>` : '<span style="color: #94A3B8;">No GPS</span>'}
+        </td>
+        <td><span class="badge-tag" style="background: #F1F5F9; color: #334155;">${escapeHtml(sourceDisplay)}</span></td>
+        <td>${f.last_location_reviewed_at || 'Never'}</td>
+        <td><strong>${f.next_location_review_due_at || 'Immediate'}</strong></td>
+        <td><span class="badge-tag ${status}">${status.toUpperCase()}</span></td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            ${hasGPS ? `
+              <button class="btn btn-outline btn-xs" onclick="focusFarmerOnMap('${f.id}')" title="Center on Map">
+                📍 Locate
+              </button>
+            ` : ''}
+            <button class="btn btn-primary btn-xs" onclick="openManualLocationModalWithFarmer('${f.id}')" title="Set/Edit Location">
+              ✏️ Set Location
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// =========================================================
+// MANUAL LOCATION ENTRY MODAL HANDLERS
+// =========================================================
+function openManualLocationModal() {
+  populateManualFarmerSelect();
+  setManualEntryMode('existing');
+  document.getElementById('manual-location-form')?.reset();
+  const sourceElem = document.getElementById('manual-source');
+  if (sourceElem) sourceElem.value = 'Manual Admin Entry';
+  document.getElementById('manual-location-modal')?.classList.remove('hidden');
+}
+
+function openManualLocationModalWithCoords(lat, lng) {
+  openManualLocationModal();
+  document.getElementById('manual-lat').value = lat;
+  document.getElementById('manual-lng').value = lng;
+  showToast(`Pre-filled coordinates (${lat}, ${lng}) from map click.`, 'info');
+}
+
+async function openManualLocationModalWithFarmer(farmerId) {
+  openManualLocationModal();
+  setManualEntryMode('existing');
+  const sel = document.getElementById('manual-farmer-select');
+  if (sel) sel.value = farmerId;
+  onManualFarmerSelectChange(farmerId);
+}
+
+function closeManualLocationModal() {
+  document.getElementById('manual-location-modal')?.classList.add('hidden');
+}
+
+function setManualEntryMode(mode) {
+  state.manualEntryMode = mode;
+  const btnExisting = document.getElementById('btn-manual-mode-existing');
+  const btnNew = document.getElementById('btn-manual-mode-new');
+  const grpExisting = document.getElementById('manual-group-existing');
+  const grpNew = document.getElementById('manual-group-new');
+
+  if (mode === 'existing') {
+    if (btnExisting) {
+      btnExisting.className = 'btn btn-sm btn-primary';
+      btnExisting.style.background = '';
+      btnExisting.style.color = '';
+    }
+    if (btnNew) {
+      btnNew.className = 'btn btn-sm btn-outline';
+      btnNew.style.background = 'transparent';
+      btnNew.style.borderColor = 'transparent';
+      btnNew.style.color = 'var(--text-muted)';
+    }
+    grpExisting?.classList.remove('hidden');
+    grpNew?.classList.add('hidden');
+    const sel = document.getElementById('manual-farmer-select');
+    if (sel) sel.required = true;
+    const nameInp = document.getElementById('manual-new-name');
+    if (nameInp) nameInp.required = false;
+    const phoneInp = document.getElementById('manual-new-phone');
+    if (phoneInp) phoneInp.required = false;
+  } else {
+    if (btnNew) {
+      btnNew.className = 'btn btn-sm btn-primary';
+      btnNew.style.background = '';
+      btnNew.style.color = '';
+    }
+    if (btnExisting) {
+      btnExisting.className = 'btn btn-sm btn-outline';
+      btnExisting.style.background = 'transparent';
+      btnExisting.style.borderColor = 'transparent';
+      btnExisting.style.color = 'var(--text-muted)';
+    }
+    grpExisting?.classList.add('hidden');
+    grpNew?.classList.remove('hidden');
+    const sel = document.getElementById('manual-farmer-select');
+    if (sel) sel.required = false;
+    const nameInp = document.getElementById('manual-new-name');
+    if (nameInp) nameInp.required = true;
+    const phoneInp = document.getElementById('manual-new-phone');
+    if (phoneInp) phoneInp.required = true;
+  }
+}
+
+function onManualFarmerSelectChange(farmerId) {
+  if (!farmerId) return;
+  const farmer = (state.allFarmers || []).find(f => f.id === farmerId);
+  if (farmer) {
+    if (farmer.village) document.getElementById('manual-village').value = farmer.village;
+    if (farmer.latitude !== null && farmer.latitude !== undefined) document.getElementById('manual-lat').value = farmer.latitude;
+    if (farmer.longitude !== null && farmer.longitude !== undefined) document.getElementById('manual-lng').value = farmer.longitude;
+    if (farmer.address) document.getElementById('manual-address').value = farmer.address;
+    if (farmer.notes) document.getElementById('manual-notes').value = farmer.notes;
+  }
+}
+
+async function handleManualLocationSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-save-manual-entry');
+  if (btn) btn.disabled = true;
+
+  const lat = parseFloat(document.getElementById('manual-lat').value);
+  const lng = parseFloat(document.getElementById('manual-lng').value);
+  const village = document.getElementById('manual-village').value.trim();
+  const address = document.getElementById('manual-address').value.trim();
+  const source = document.getElementById('manual-source').value;
+  const notes = document.getElementById('manual-notes').value.trim();
+
+  if (isNaN(lat) || isNaN(lng)) {
+    showToast('Please provide valid decimal coordinates for latitude and longitude.', 'error');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  try {
+    let savedFarmerId = null;
+
+    if (state.manualEntryMode === 'existing') {
+      const farmerId = document.getElementById('manual-farmer-select').value;
+      if (!farmerId) {
+        showToast('Please select a farmer from the dropdown.', 'error');
+        if (btn) btn.disabled = false;
+        return;
+      }
+
+      const res = await authFetch(`/api/farmers/${farmerId}/location`, {
+        method: 'POST',
+        body: JSON.stringify({
+          latitude: lat,
+          longitude: lng,
+          village,
+          address,
+          source,
+          notes
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to store farmer location.');
+      savedFarmerId = farmerId;
+      showToast(`Location successfully stored for farmer ${data.full_name} (${farmerId})!`, 'success');
+    } else {
+      // Register new farmer with location
+      const fullName = document.getElementById('manual-new-name').value.trim();
+      const nameTa = document.getElementById('manual-new-name-ta').value.trim();
+      const contactNumber = document.getElementById('manual-new-phone').value.trim();
+      const district = document.getElementById('manual-new-district').value.trim() || 'Kanyakumari';
+
+      if (!fullName) {
+        showToast('Farmer name is required.', 'error');
+        if (btn) btn.disabled = false;
+        return;
+      }
+      if (!contactNumber) {
+        showToast('Contact phone number is required.', 'error');
+        if (btn) btn.disabled = false;
+        return;
+      }
+
+      const res = await authFetch('/api/farmers', {
+        method: 'POST',
+        body: JSON.stringify({
+          full_name: fullName,
+          name_ta: nameTa,
+          contact_number: contactNumber,
+          village,
+          district,
+          latitude: lat,
+          longitude: lng,
+          location_source: 'manual',
+          address,
+          notes
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to register farmer with manual location.');
+      savedFarmerId = data.id;
+      showToast(`New farmer ${data.full_name} (${data.id}) registered & stored with manual location!`, 'success');
+    }
+
+    closeManualLocationModal();
+
+    // Refresh map data & tables
+    await loadMapData();
+    await loadAllMappedFarmersAndDue();
+    fetchDashboardStats(false);
+
+    // Smooth focus on the saved location
+    if (savedFarmerId) {
+      setTimeout(() => focusFarmerOnMap(savedFarmerId), 300);
+    }
   } catch (err) {
-    console.error(err);
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

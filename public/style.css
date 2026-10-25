@@ -1102,6 +1102,16 @@ input:focus, select:focus, textarea:focus {
   text-align: center;
 }
 
+@keyframes pulsePin {
+  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+  70% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+.custom-temp-pin {
+  cursor: pointer;
+}
+
 /* =========================================================
    MODALS
    ========================================================= */

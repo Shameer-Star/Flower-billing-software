@@ -672,13 +672,28 @@ app.post('/api/farmers/:id/location', authenticateAdmin, (req, res) => {
 // Map coordinates for all farmers
 app.get('/api/farmers/locations/map', authenticateAdmin, (req, res) => {
   refreshLocationReviewStatuses();
+  const reviewStatus = str(req.query.reviewStatus);
+  const village = str(req.query.village);
+  const where = ["latitude IS NOT NULL", "longitude IS NOT NULL", "status = 'active'"];
+  const params = [];
+  if (reviewStatus) {
+    where.push('location_review_status = ?');
+    params.push(reviewStatus);
+  }
+  if (village) {
+    where.push('village = ?');
+    params.push(village);
+  }
+  const whereSql = `WHERE ${where.join(' AND ')}`;
   const farmers = query(`
     SELECT id, full_name, name_ta, contact_number, village, district,
-           latitude, longitude, location_review_status, last_location_reviewed_at, next_location_review_due_at
+           latitude, longitude, location_source, location_review_status,
+           last_location_reviewed_at, next_location_review_due_at, total_collected_kg, address, notes
     FROM farmers
-    WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND status = 'active'
-  `);
-  res.json({ farmers });
+    ${whereSql}
+    ORDER BY full_name COLLATE NOCASE ASC
+  `, params);
+  res.json({ farmers, count: farmers.length });
 });
 
 // =========================================================

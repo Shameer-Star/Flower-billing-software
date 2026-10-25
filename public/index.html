@@ -390,6 +390,9 @@
               <p class="subtitle">Interactive mapping and mandatory 15-day location verification cycle for flower collection routes</p>
             </div>
             <div class="header-actions">
+              <button class="btn btn-primary btn-sm" onclick="openManualLocationModal()">
+                <span>📍 + Manual Location Entry</span>
+              </button>
               <button class="btn btn-outline btn-sm" onclick="runManualLocationReviewScan()">
                 <span>🔄 Run 15-Day Review Scan</span>
               </button>
@@ -425,27 +428,60 @@
               <div class="map-controls">
                 <span class="map-title">Interactive Collection Map</span>
                 <span class="map-sub" id="map-active-count">Showing 0 mapped farmers</span>
+                <span class="map-hint" style="margin-left: 12px; font-size: 0.78rem; color: #16A34A; font-weight: 600;">💡 Click anywhere on map to manually set location</span>
               </div>
-              <div class="map-filter-group">
+              <div class="map-filter-group" style="display: flex; gap: 8px; align-items: center;">
                 <select id="map-filter-status" onchange="loadMapData()">
                   <option value="">All Mapped Farmers</option>
                   <option value="verified">Verified Only</option>
                   <option value="due_soon">Due Soon Only</option>
                   <option value="overdue">Overdue Review Only</option>
                 </select>
+                <button class="btn btn-outline btn-xs" onclick="resetMapView()" title="Fit all mapped farmers on screen">🧭 Center Map</button>
               </div>
             </div>
             <div id="farmers-leaflet-map" class="leaflet-map-container"></div>
           </div>
 
-          <!-- Farmers Due for Location Review Table -->
+          <!-- Farmers Mapped & Location Review Registry -->
           <div class="content-card">
-            <div class="card-header">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
-                <h3>Farmers Due or Overdue for 15-Day Location Review</h3>
-                <p class="card-sub">Authorized location verification required to refresh collection logistics</p>
+                <h3 id="locations-table-heading">Mapped Farmers & Fortnightly Location Registry</h3>
+                <p class="card-sub">Registry of farmers stored with manual / verified GPS coordinates and 15-day collection route statuses</p>
+              </div>
+              <div class="table-tab-group" style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-sm btn-primary" id="btn-tab-all-mapped" onclick="switchLocationListTab('all')">
+                  All Mapped Farmers (<span id="all-mapped-count">0</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-tab-due-mapped" onclick="switchLocationListTab('due')">
+                  Due / Overdue Only (<span id="due-mapped-count">0</span>)
+                </button>
               </div>
             </div>
+
+            <!-- Toolbar Filters for Mapped Farmers List -->
+            <div class="toolbar-card" style="margin: 8px 0 16px 0; padding: 10px 14px; background: #F8FAFC; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+              <div class="toolbar-left" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <div class="search-input-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input type="text" id="map-farmers-search" placeholder="Search farmer, village, or ID..." oninput="renderMappedFarmersTable()">
+                </div>
+                <select id="map-farmers-village-filter" onchange="renderMappedFarmersTable()">
+                  <option value="">All Villages</option>
+                </select>
+                <select id="map-farmers-source-filter" onchange="renderMappedFarmersTable()">
+                  <option value="">All Verification Sources</option>
+                  <option value="manual">Manual Entry / Admin</option>
+                  <option value="Field Visit Collection">Field Visit Inspection</option>
+                  <option value="Farmer Submitted">Farmer Submitted</option>
+                </select>
+              </div>
+              <div class="toolbar-right">
+                <span class="records-counter" id="mapped-farmers-counter">0 farmers</span>
+              </div>
+            </div>
+
             <div class="table-responsive">
               <table class="table" id="due-locations-table">
                 <thead>
@@ -454,6 +490,7 @@
                     <th>Village</th>
                     <th>Contact Phone</th>
                     <th>Current GPS</th>
+                    <th>Source</th>
                     <th>Last Reviewed</th>
                     <th>Next Due Date</th>
                     <th>Review Status</th>
@@ -1002,6 +1039,112 @@
 
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-submit-review">
           Verify & Reset 15-Day Cycle
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: MANUAL FARMER LOCATION ENTRY ==================== -->
+  <div id="manual-location-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeManualLocationModal()">×</button>
+      <div class="modal-header">
+        <h3>📍 Manual Farmer Location Entry</h3>
+        <p>Set or update GPS coordinates manually or register a new farmer with map location</p>
+      </div>
+
+      <!-- Mode Selection: Existing Farmer vs New Farmer -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; background: #F1F5F9; padding: 4px; border-radius: var(--radius-sm);">
+        <button type="button" class="btn btn-sm btn-primary" id="btn-manual-mode-existing" style="flex: 1;" onclick="setManualEntryMode('existing')">
+          Select Existing Farmer
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" id="btn-manual-mode-new" style="flex: 1; background: transparent; border-color: transparent; color: var(--text-muted);" onclick="setManualEntryMode('new')">
+          + Register New Farmer
+        </button>
+      </div>
+
+      <form id="manual-location-form" onsubmit="handleManualLocationSubmit(event)">
+        <!-- Existing Farmer Group -->
+        <div id="manual-group-existing" class="form-group">
+          <label for="manual-farmer-select">Select Farmer *</label>
+          <select id="manual-farmer-select" onchange="onManualFarmerSelectChange(this.value)">
+            <option value="">-- Choose Registered Farmer --</option>
+          </select>
+          <small class="text-subtle" id="manual-farmer-hint">Select a farmer from the registry to set or update their GPS pin.</small>
+        </div>
+
+        <!-- New Farmer Fields Group -->
+        <div id="manual-group-new" class="hidden">
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="manual-new-name">Full Name *</label>
+              <input type="text" id="manual-new-name" placeholder="e.g. Kannan Muthu">
+            </div>
+            <div class="form-group">
+              <label for="manual-new-name-ta">Tamil Name (Optional)</label>
+              <input type="text" id="manual-new-name-ta" placeholder="e.g. கண்ணன் முத்து">
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="manual-new-phone">Contact Phone *</label>
+              <input type="tel" id="manual-new-phone" placeholder="e.g. 9842156789">
+            </div>
+            <div class="form-group">
+              <label for="manual-new-district">District</label>
+              <input type="text" id="manual-new-district" value="Kanyakumari" placeholder="District name">
+            </div>
+          </div>
+        </div>
+
+        <!-- GPS Coordinates -->
+        <div class="gps-field-group">
+          <div class="gps-header">
+            <label>GPS Coordinates * (Manual Entry or Map Click)</label>
+            <button type="button" class="btn btn-outline btn-xs" onclick="captureDeviceCoordinates('manual-lat', 'manual-lng')">
+              📍 Device GPS
+            </button>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="manual-lat">Latitude *</label>
+              <input type="number" id="manual-lat" step="any" required placeholder="e.g. 10.1654">
+            </div>
+            <div class="form-group">
+              <label for="manual-lng">Longitude *</label>
+              <input type="number" id="manual-lng" step="any" required placeholder="e.g. 77.8521">
+            </div>
+          </div>
+          <small class="text-subtle" id="manual-coords-hint">💡 Tip: You can type coordinates manually, use device GPS, or click any spot directly on the interactive map!</small>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="manual-village">Village / Locality *</label>
+            <input type="text" id="manual-village" required placeholder="e.g. Nilakottai">
+          </div>
+          <div class="form-group">
+            <label for="manual-source">Verification Source</label>
+            <select id="manual-source">
+              <option value="Manual Admin Entry" selected>Manual Admin Entry</option>
+              <option value="Field Visit Collection">Field Visit Inspection</option>
+              <option value="Farmer Submitted">Farmer Submitted Coordinates</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="manual-address">Farm / Residential Address</label>
+          <input type="text" id="manual-address" placeholder="e.g. Plot 14, Main Road Flower Farms">
+        </div>
+
+        <div class="form-group">
+          <label for="manual-notes">Location / Cultivation Notes</label>
+          <input type="text" id="manual-notes" placeholder="e.g. Manual entry farmer - Jasmine & Rose farm 3.5 acres">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-save-manual-entry">
+          💾 Store Manual Farmer Location
         </button>
       </form>
     </div>

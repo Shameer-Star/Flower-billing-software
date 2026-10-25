@@ -240,3 +240,53 @@ test('feature: farmer registration with phone variations and villages in GET /ap
   assert.equal(found.name_ta, 'கந்தசாமி வேலன்');
 });
 
+test('feature: manual farmer location entry, map retrieval, count and filtering', async () => {
+  // Add a farmer with manual location entry
+  const res = await api('/api/farmers', {
+    method: 'POST',
+    body: {
+      full_name: 'Manual Test Farmer',
+      contact_number: '9789012345',
+      village: 'Nilakottai',
+      district: 'Dindigul',
+      latitude: 10.1654,
+      longitude: 77.8521,
+      location_source: 'manual',
+      notes: 'Manual entry test cultivator'
+    }
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.data.latitude, 10.1654);
+  assert.equal(res.data.longitude, 77.8521);
+  assert.equal(res.data.location_source, 'manual');
+  assert.equal(res.data.location_review_status, 'verified');
+
+  // Verify GET /api/farmers/locations/map returns count and includes the farmer
+  const mapRes = await api('/api/farmers/locations/map');
+  assert.equal(mapRes.status, 200);
+  assert.ok(typeof mapRes.data.count === 'number');
+  assert.ok(mapRes.data.count >= 1);
+  const mapFarmer = mapRes.data.farmers.find(f => f.id === res.data.id);
+  assert.ok(mapFarmer);
+  assert.equal(mapFarmer.village, 'Nilakottai');
+  assert.equal(mapFarmer.latitude, 10.1654);
+  assert.equal(mapFarmer.longitude, 77.8521);
+
+  // Update farmer location manually via POST /api/farmers/:id/location
+  const updateRes = await api(`/api/farmers/${res.data.id}/location`, {
+    method: 'POST',
+    body: {
+      latitude: 10.1700,
+      longitude: 77.8600,
+      village: 'Nilakottai North',
+      source: 'Manual Admin Entry',
+      notes: 'Updated manual coordinates'
+    }
+  });
+  assert.equal(updateRes.status, 200);
+  assert.equal(updateRes.data.latitude, 10.1700);
+  assert.equal(updateRes.data.longitude, 77.8600);
+  assert.equal(updateRes.data.village, 'Nilakottai North');
+});
+
+
