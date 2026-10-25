@@ -434,8 +434,13 @@ app.get('/api/farmers', authenticateAdmin, (req, res) => {
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
-  const villageRows = query('SELECT DISTINCT village FROM farmers WHERE village IS NOT NULL AND village != "" ORDER BY village ASC');
-  const villages = villageRows.map(r => r.village);
+  let villages = [];
+  try {
+    const villageRows = query("SELECT DISTINCT village FROM farmers WHERE village IS NOT NULL AND village != '' ORDER BY village ASC");
+    villages = villageRows.map(r => r.village);
+  } catch (e) {
+    console.warn('[Farmers] Failed to fetch villages list:', e.message);
+  }
 
   res.json({
     farmers,
