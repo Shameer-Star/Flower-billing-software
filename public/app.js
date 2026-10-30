@@ -24,7 +24,20 @@ const state = {
   farmerPagination: { page: 1, limit: 15, total: 0 },
   collectionPagination: { page: 1, limit: 15, total: 0 },
   auditPagination: { page: 1, limit: 25, total: 0 },
-  syncInterval: null
+  syncInterval: null,
+  // Selling Management & Client Billing Additions
+  buyers: [],
+  distributions: [],
+  sellingBills: [],
+  activeSellingTab: 'buyers',
+  buyerPagination: { page: 1, limit: 15, total: 0 },
+  distPagination: { page: 1, limit: 15, total: 0 },
+  sellingBillsPagination: { page: 1, limit: 15, total: 0 },
+  currentSellingBill: null,
+  unbilledDistributions: [],
+  selectedUnbilledIds: new Set(),
+  currentFarmerStatement: null,
+  currentStatementFarmerId: null
 };
 
 // Global reference for active profile modal
@@ -346,6 +359,7 @@ function loadCurrentViewData() {
   const v = state.currentView;
   if (v === 'dashboard') fetchDashboardStats(true);
   else if (v === 'farmers') fetchFarmersList();
+  else if (v === 'selling') loadSellingData();
   else if (v === 'locations') initLocationsMapView();
   else if (v === 'collections') fetchCollectionsList();
   else if (v === 'reports') fetchReportsData();
@@ -620,6 +634,10 @@ function renderFarmersTable(farmers) {
         <td>
           <strong>${escapeHtml(f.full_name)}</strong>
           ${f.name_ta ? `<br><small class="text-subtle">${escapeHtml(f.name_ta)}</small>` : ''}
+          <div style="font-size: 0.72rem; color: #475569; margin-top: 2px;">
+            <span class="badge-tag info" style="font-size: 0.68rem; padding: 1px 5px;">${f.billing_cycle_days || 15}d Cycle</span>
+            <span class="badge-tag" style="font-size: 0.68rem; padding: 1px 5px; background: #EEF2FF; color: #4F46E5;">${f.commission_rate ?? 10}% Comm</span>
+          </div>
         </td>
         <td>${escapeHtml(f.contact_number)}</td>
         <td>${escapeHtml(f.village)}</td>
@@ -628,8 +646,9 @@ function renderFarmersTable(farmers) {
         <td><strong>₹${totalPayout}</strong></td>
         <td>${escapeHtml(f.last_collection_date || '—')}</td>
         <td>
-          <div style="display: flex; gap: 6px;">
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
             <button class="btn btn-outline btn-xs" onclick="openFarmerProfileModal('${escapeHtml(f.id)}')" title="View Full Profile">${btnProfile}</button>
+            <button class="btn btn-outline btn-xs" onclick="openFarmerStatementModal('${escapeHtml(f.id)}')" title="View 15/20/30-Day Statement">📑 Statement</button>
             <button class="btn btn-outline btn-xs" onclick="openLocationReviewForFarmer('${escapeHtml(f.id)}')" title="Review 15-Day Location">${btnLoc}</button>
             <button class="btn btn-primary btn-xs" onclick="startCollectionForFarmer('${escapeHtml(f.id)}')" title="Record Flower Harvest">${btnHarvest}</button>
           </div>
@@ -643,6 +662,10 @@ function renderFarmersTable(farmers) {
 function openNewFarmerModal() {
   const form = document.getElementById('new-farmer-form');
   if (form) form.reset();
+  const cycleSelect = document.getElementById('farmer-billing-cycle');
+  if (cycleSelect) cycleSelect.value = '15';
+  const commInput = document.getElementById('farmer-commission-rate');
+  if (commInput) commInput.value = '10';
   document.getElementById('new-farmer-modal')?.classList.remove('hidden');
 }
 
@@ -660,6 +683,8 @@ async function handleCreateFarmer(e) {
   const latitude = document.getElementById('farmer-lat').value.trim();
   const longitude = document.getElementById('farmer-lng').value.trim();
   const notes = document.getElementById('farmer-notes').value.trim();
+  const billing_cycle_days = parseInt(document.getElementById('farmer-billing-cycle')?.value) || 15;
+  const commission_rate = parseFloat(document.getElementById('farmer-commission-rate')?.value) || 10.0;
 
   // Validate latitude / longitude if partially entered
   if ((latitude && !longitude) || (!latitude && longitude)) {
@@ -673,7 +698,18 @@ async function handleCreateFarmer(e) {
   try {
     const res = await authFetch('/api/farmers', {
       method: 'POST',
-      body: JSON.stringify({ full_name, name_ta, contact_number, village, address, latitude, longitude, notes })
+      body: JSON.stringify({
+        full_name,
+        name_ta,
+        contact_number,
+        village,
+        address,
+        latitude,
+        longitude,
+        notes,
+        billing_cycle_days,
+        commission_rate
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to register farmer');
@@ -1707,6 +1743,1150 @@ function exportFarmersCsv() {
 
 function exportLocationsCsv() {
   window.open('/api/reports/export/farmers-csv', '_blank');
+}
+
+function exportBuyersCsv() {
+  window.open('/api/reports/export/buyers-csv', '_blank');
+}
+
+function exportDistributionsCsv() {
+  window.open('/api/reports/export/distributions-csv', '_blank');
+}
+
+function exportSellingBillsCsv() {
+  window.open('/api/reports/export/selling-bills-csv', '_blank');
+}
+
+// =========================================================
+// 8. SELLING MANAGEMENT & BUYERS MODULE
+// =========================================================
+
+function loadSellingData() {
+  switchSellingTab(state.activeSellingTab || 'buyers');
+}
+
+function switchSellingTab(tabKey) {
+  state.activeSellingTab = tabKey;
+  document.querySelectorAll('.selling-tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.subtab === tabKey);
+  });
+  document.querySelectorAll('.selling-subtab').forEach(s => {
+    s.classList.toggle('hidden', s.id !== `selling-subtab-${tabKey}`);
+  });
+
+  if (tabKey === 'buyers') fetchBuyersList();
+  else if (tabKey === 'distributions') fetchDistributionsList();
+  else if (tabKey === 'bills') fetchSellingBillsList();
+}
+
+// --- SUB-TAB 1: BUYERS DIRECTORY (20-25 WHOLESALE BUYERS) ---
+
+async function fetchBuyersList() {
+  const search = document.getElementById('buyer-search-input')?.value || '';
+  const market = document.getElementById('buyer-market-filter')?.value || '';
+  const page = state.buyerPagination.page || 1;
+  const limit = state.buyerPagination.limit || 15;
+
+  try {
+    const res = await authFetch(`/api/buyers?search=${encodeURIComponent(search)}&market=${encodeURIComponent(market)}&page=${page}&limit=${limit}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    state.buyers = data.buyers || [];
+    state.buyerPagination = data.pagination || { page: 1, limit: 15, total: 0, totalPages: 0 };
+
+    // Update records counter & sidebar badges
+    const counter = document.getElementById('buyer-records-counter');
+    if (counter) counter.textContent = `${state.buyerPagination.total} wholesale buyers`;
+    const sideBadge = document.getElementById('nav-selling-buyer-count');
+    if (sideBadge) sideBadge.textContent = state.buyerPagination.total;
+    const tabBadge = document.getElementById('tab-buyers-badge');
+    if (tabBadge) tabBadge.textContent = state.buyerPagination.total;
+
+    renderBuyersTable(state.buyers);
+    renderPaginationControls('buyers-pagination', state.buyerPagination, (p) => {
+      state.buyerPagination.page = p;
+      fetchBuyersList();
+    });
+
+    // Populate buyer selects in modals if needed
+    populateBuyerSelectDropdowns(state.buyers);
+
+  } catch (err) {
+    console.error('Failed to fetch buyers list:', err);
+  }
+}
+
+function populateBuyerSelectDropdowns(buyers) {
+  const distSelect = document.getElementById('dist-buyer-select');
+  if (distSelect) {
+    const curVal = distSelect.value;
+    distSelect.innerHTML = '<option value="">-- Choose Wholesale Buyer --</option>' +
+      buyers.map(b => `<option value="${b.id}" ${b.id === curVal ? 'selected' : ''}>${escapeHtml(b.name)} (${escapeHtml(b.market_city)})</option>`).join('');
+  }
+
+  const billSelect = document.getElementById('gen-bill-buyer-select');
+  if (billSelect) {
+    const curVal = billSelect.value;
+    billSelect.innerHTML = '<option value="">-- Choose Wholesale Buyer --</option>' +
+      buyers.map(b => `<option value="${b.id}" ${b.id === curVal ? 'selected' : ''}>${escapeHtml(b.name)} [${b.billing_cycle_days || 6}-Day Cycle] (Bal: ₹${Number(b.current_balance).toLocaleString('en-IN')})</option>`).join('');
+  }
+}
+
+function onBuyerSearchChange(val) {
+  state.buyerPagination.page = 1;
+  fetchBuyersList();
+}
+
+function onBuyerFilterChange() {
+  state.buyerPagination.page = 1;
+  fetchBuyersList();
+}
+
+function renderBuyersTable(buyers) {
+  const tbody = document.getElementById('buyers-table-tbody');
+  if (!tbody) return;
+
+  if (!buyers || buyers.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align: center; color: #94A3B8; padding: 32px;">
+          <div style="font-size: 1.8rem; margin-bottom: 6px;">🏪</div>
+          <strong>No Wholesale Buyers Found</strong>
+          <p style="font-size: 0.85rem; margin-top: 4px;">No buyers match the filter criteria. Add a new buyer using the button above.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = buyers.map(b => {
+    const bal = Number(b.current_balance || 0);
+    const balClass = bal > 0 ? 'text-rose' : 'text-green';
+    const totalPurchased = Number(b.total_purchased || 0).toLocaleString('en-IN');
+    const cycleDays = b.billing_cycle_days || 6;
+
+    return `
+      <tr>
+        <td><span class="badge-code">${escapeHtml(b.id)}</span></td>
+        <td>
+          <strong>${escapeHtml(b.name)}</strong>
+          ${b.name_ta ? `<br><small class="text-subtle">${escapeHtml(b.name_ta)}</small>` : ''}
+          ${b.contact_person ? `<div style="font-size: 0.72rem; color: #64748B;">Attn: ${escapeHtml(b.contact_person)}</div>` : ''}
+        </td>
+        <td>${escapeHtml(b.market_city)}</td>
+        <td>${escapeHtml(b.phone)}</td>
+        <td><span class="badge-tag info">${cycleDays}-Day Cycle</span></td>
+        <td><strong>₹${Number(b.credit_limit || 0).toLocaleString('en-IN')}</strong></td>
+        <td><strong>₹${totalPurchased}</strong></td>
+        <td><strong class="${balClass}">₹${bal.toLocaleString('en-IN')}</strong></td>
+        <td>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-xs" onclick="openNewDistributionModalForBuyer('${escapeHtml(b.id)}')" title="Dispatch Flowers to Buyer">+ Dispatch</button>
+            <button class="btn btn-outline btn-xs" onclick="openGenerateBillModalForBuyer('${escapeHtml(b.id)}')" title="Generate Consolidated 5-6 Day Bill">📄 Bill</button>
+            <button class="btn btn-outline btn-xs" onclick="openRecordBuyerPayment('${escapeHtml(b.id)}')" title="Record Buyer Settlement Payment">💰 Pay</button>
+            <button class="btn btn-outline btn-xs" onclick="openEditBuyerModal('${escapeHtml(b.id)}')" title="Edit Buyer Details">✏️ Edit</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openNewBuyerModal() {
+  const form = document.getElementById('new-buyer-form');
+  if (form) form.reset();
+  document.getElementById('buyer-edit-id').value = '';
+  document.getElementById('buyer-modal-title').textContent = 'Register Wholesale Flower Buyer';
+  document.getElementById('buyer-billing-cycle').value = '6';
+  document.getElementById('new-buyer-modal')?.classList.remove('hidden');
+}
+
+function closeNewBuyerModal() {
+  document.getElementById('new-buyer-modal')?.classList.add('hidden');
+}
+
+async function openEditBuyerModal(id) {
+  try {
+    const res = await authFetch(`/api/buyers/${encodeURIComponent(id)}`);
+    if (!res.ok) return;
+    const b = await res.json();
+
+    document.getElementById('buyer-edit-id').value = b.id;
+    document.getElementById('buyer-name').value = b.name || '';
+    document.getElementById('buyer-name-ta').value = b.name_ta || '';
+    document.getElementById('buyer-contact-person').value = b.contact_person || '';
+    document.getElementById('buyer-phone').value = b.phone || '';
+    document.getElementById('buyer-email').value = b.email || '';
+    document.getElementById('buyer-market-city').value = b.market_city || '';
+    document.getElementById('buyer-billing-cycle').value = b.billing_cycle_days || 6;
+    document.getElementById('buyer-credit-limit').value = b.credit_limit || 50000;
+    document.getElementById('buyer-address').value = b.address || '';
+    document.getElementById('buyer-notes').value = b.notes || '';
+
+    document.getElementById('buyer-modal-title').textContent = `Edit Wholesale Buyer (${b.id})`;
+    document.getElementById('new-buyer-modal')?.classList.remove('hidden');
+  } catch (err) {
+    showToast('Failed to load buyer details', 'error');
+  }
+}
+
+async function handleCreateBuyer(e) {
+  e.preventDefault();
+  const editId = document.getElementById('buyer-edit-id')?.value;
+  const name = document.getElementById('buyer-name').value.trim();
+  const name_ta = document.getElementById('buyer-name-ta').value.trim();
+  const contact_person = document.getElementById('buyer-contact-person').value.trim();
+  const phone = document.getElementById('buyer-phone').value.trim();
+  const email = document.getElementById('buyer-email').value.trim();
+  const market_city = document.getElementById('buyer-market-city').value.trim();
+  const billing_cycle_days = parseInt(document.getElementById('buyer-billing-cycle').value) || 6;
+  const credit_limit = parseFloat(document.getElementById('buyer-credit-limit').value) || 0;
+  const address = document.getElementById('buyer-address').value.trim();
+  const notes = document.getElementById('buyer-notes').value.trim();
+
+  const btn = document.getElementById('btn-save-buyer');
+  if (btn) btn.disabled = true;
+
+  try {
+    const url = editId ? `/api/buyers/${encodeURIComponent(editId)}` : '/api/buyers';
+    const method = editId ? 'PUT' : 'POST';
+
+    const res = await authFetch(url, {
+      method,
+      body: JSON.stringify({ name, name_ta, contact_person, phone, email, market_city, billing_cycle_days, credit_limit, address, notes })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save buyer');
+
+    showToast(`Buyer ${data.name} saved successfully!`, 'success');
+    closeNewBuyerModal();
+    fetchBuyersList();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// --- SUB-TAB 2: FLOWER DISTRIBUTIONS (TRACKED FROM PROCUREMENT ORIGINS) ---
+
+async function fetchDistributionsList() {
+  const search = document.getElementById('dist-search-input')?.value || '';
+  const origin = document.getElementById('dist-location-filter')?.value || '';
+  const flower = document.getElementById('dist-flower-filter')?.value || '';
+  const billing_status = document.getElementById('dist-bill-status-filter')?.value || '';
+  const page = state.distPagination.page || 1;
+  const limit = state.distPagination.limit || 15;
+
+  try {
+    const res = await authFetch(`/api/selling/distributions?search=${encodeURIComponent(search)}&origin=${encodeURIComponent(origin)}&flower=${encodeURIComponent(flower)}&billing_status=${encodeURIComponent(billing_status)}&page=${page}&limit=${limit}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    state.distributions = data.distributions || [];
+    state.distPagination = data.pagination || { page: 1, limit: 15, total: 0, totalPages: 0 };
+
+    const counter = document.getElementById('dist-records-counter');
+    if (counter) counter.textContent = `${state.distPagination.total} distributions`;
+
+    renderDistributionsTable(state.distributions);
+    renderPaginationControls('distributions-pagination', state.distPagination, (p) => {
+      state.distPagination.page = p;
+      fetchDistributionsList();
+    });
+
+    // Also fetch summary for origin location badges
+    fetchDistributionsSummary();
+
+  } catch (err) {
+    console.error('Failed to fetch distributions:', err);
+  }
+}
+
+async function fetchDistributionsSummary() {
+  try {
+    const res = await authFetch('/api/selling/distributions/summary');
+    if (!res.ok) return;
+    const summary = await res.json();
+    renderOriginLocationChips(summary.byOrigin);
+  } catch (err) {
+    console.error('Failed to load distributions summary:', err);
+  }
+}
+
+function renderOriginLocationChips(origins) {
+  const container = document.getElementById('origin-location-chips');
+  if (!container) return;
+
+  if (!origins || origins.length === 0) {
+    container.innerHTML = '<span class="text-subtle">No procurement distributions recorded.</span>';
+    return;
+  }
+
+  const activeOrigin = document.getElementById('dist-location-filter')?.value || '';
+
+  container.innerHTML = origins.map(o => {
+    const isAct = o.procurement_origin === activeOrigin;
+    return `
+      <div class="origin-chip ${isAct ? 'active' : ''}" onclick="filterDistributionsByOrigin('${escapeHtml(o.procurement_origin)}')">
+        <span class="origin-chip-name">📍 ${escapeHtml(o.procurement_origin)}</span>
+        <span class="origin-chip-badge">${o.total_kg} kg</span>
+        <span style="font-size: 0.72rem; color: #15803D;">₹${Number(o.total_amount).toLocaleString('en-IN')}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterDistributionsByOrigin(origin) {
+  const filter = document.getElementById('dist-location-filter');
+  if (filter) {
+    filter.value = (filter.value === origin) ? '' : origin;
+    onDistFilterChange();
+  }
+}
+
+function onDistFilterChange() {
+  state.distPagination.page = 1;
+  fetchDistributionsList();
+}
+
+function renderDistributionsTable(distributions) {
+  const tbody = document.getElementById('distributions-table-tbody');
+  if (!tbody) return;
+
+  if (!distributions || distributions.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="12" style="text-align: center; color: #94A3B8; padding: 32px;">
+          <div style="font-size: 1.8rem; margin-bottom: 6px;">🚛</div>
+          <strong>No Flower Distribution Records Found</strong>
+          <p style="font-size: 0.85rem; margin-top: 4px;">Record flower dispatches from procurement origins (Thovalai, Nilakottai, Hosur, etc.) to wholesale buyers.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = distributions.map(d => {
+    const isBilled = d.billing_status === 'billed';
+    const statusTag = isBilled
+      ? `<span class="badge-tag paid" title="Billed in ${d.selling_bill_id}">Billed (${escapeHtml(d.selling_bill_id)})</span>`
+      : `<span class="badge-tag pending">Unbilled</span>`;
+
+    const coolieFreight = (Number(d.coolie_charge || 0) + Number(d.transport_charge || 0)).toLocaleString('en-IN');
+
+    return `
+      <tr>
+        <td><span class="badge-code">${escapeHtml(d.id)}</span></td>
+        <td>${escapeHtml(d.distribution_date)}</td>
+        <td>
+          <strong>${escapeHtml(d.buyer_name)}</strong>
+          ${d.buyer_market ? `<br><small class="text-subtle">${escapeHtml(d.buyer_market)}</small>` : ''}
+        </td>
+        <td><span class="badge-tag info">📍 ${escapeHtml(d.procurement_origin)}</span></td>
+        <td>
+          <strong>${escapeHtml(d.flower_type)}</strong>
+          ${d.variety ? `<br><small class="text-subtle">${escapeHtml(d.variety)}</small>` : ''}
+        </td>
+        <td><strong>${d.weight_kg} kg</strong></td>
+        <td>₹${d.rate_per_kg}</td>
+        <td><strong>₹${Number(d.total_amount).toLocaleString('en-IN')}</strong></td>
+        <td>₹${coolieFreight}</td>
+        <td><code>${escapeHtml(d.vehicle_number || '—')}</code></td>
+        <td>${statusTag}</td>
+        <td>
+          ${!isBilled ? `<button class="btn btn-outline btn-xs text-rose" onclick="deleteDistribution('${d.id}')" title="Delete Unbilled Distribution">🗑️</button>` : '—'}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openNewDistributionModal() {
+  const form = document.getElementById('new-distribution-form');
+  if (form) form.reset();
+  const dateInput = document.getElementById('dist-date');
+  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+  calcDistTotal();
+  document.getElementById('new-distribution-modal')?.classList.remove('hidden');
+}
+
+function openNewDistributionModalForBuyer(buyerId) {
+  openNewDistributionModal();
+  const select = document.getElementById('dist-buyer-select');
+  if (select) select.value = buyerId;
+}
+
+function closeNewDistributionModal() {
+  document.getElementById('new-distribution-modal')?.classList.add('hidden');
+}
+
+function calcDistTotal() {
+  const weight = parseFloat(document.getElementById('dist-weight')?.value) || 0;
+  const rate = parseFloat(document.getElementById('dist-rate')?.value) || 0;
+  const coolie = parseFloat(document.getElementById('dist-coolie')?.value) || 0;
+  const transport = parseFloat(document.getElementById('dist-transport')?.value) || 0;
+
+  const flowerVal = weight * rate;
+  const total = flowerVal + coolie + transport;
+
+  const flDisplay = document.getElementById('dist-flower-value-display');
+  if (flDisplay) flDisplay.textContent = `Flowers: ₹${flowerVal.toLocaleString('en-IN')}`;
+
+  const totalDisplay = document.getElementById('dist-total-display');
+  if (totalDisplay) totalDisplay.textContent = `₹${total.toLocaleString('en-IN')}`;
+}
+
+async function handleCreateDistribution(e) {
+  e.preventDefault();
+  const buyer_id = document.getElementById('dist-buyer-select').value;
+  const distribution_date = document.getElementById('dist-date').value;
+  const procurement_origin = document.getElementById('dist-procurement-origin').value;
+  const flower_type = document.getElementById('dist-flower-type').value;
+  const variety = document.getElementById('dist-variety').value.trim();
+  const weight_kg = parseFloat(document.getElementById('dist-weight').value);
+  const rate_per_kg = parseFloat(document.getElementById('dist-rate').value);
+  const coolie_charge = parseFloat(document.getElementById('dist-coolie').value) || 0;
+  const transport_charge = parseFloat(document.getElementById('dist-transport').value) || 0;
+  const vehicle_number = document.getElementById('dist-vehicle').value.trim();
+  const remarks = document.getElementById('dist-remarks').value.trim();
+
+  const btn = document.getElementById('btn-save-dist');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await authFetch('/api/selling/distributions', {
+      method: 'POST',
+      body: JSON.stringify({
+        buyer_id, distribution_date, procurement_origin, flower_type, variety,
+        weight_kg, rate_per_kg, coolie_charge, transport_charge, vehicle_number, remarks
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to record distribution');
+
+    showToast(`Distribution dispatch ${data.id} recorded successfully!`, 'success');
+    closeNewDistributionModal();
+    fetchDistributionsList();
+    fetchBuyersList();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function deleteDistribution(id) {
+  if (!confirm(`Are you sure you want to delete distribution dispatch ${id}?`)) return;
+  try {
+    const res = await authFetch(`/api/selling/distributions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete distribution');
+
+    showToast(`Distribution ${id} deleted successfully.`, 'info');
+    fetchDistributionsList();
+    fetchBuyersList();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// --- SUB-TAB 3: CONSOLIDATED 5-6 DAY SELLING BILLS ---
+
+async function fetchSellingBillsList() {
+  const search = document.getElementById('bill-search-input')?.value || '';
+  const payment_status = document.getElementById('bill-pay-filter')?.value || '';
+  const page = state.sellingBillsPagination.page || 1;
+  const limit = state.sellingBillsPagination.limit || 15;
+
+  try {
+    const res = await authFetch(`/api/selling/bills?search=${encodeURIComponent(search)}&payment_status=${encodeURIComponent(payment_status)}&page=${page}&limit=${limit}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    state.sellingBills = data.bills || [];
+    state.sellingBillsPagination = data.pagination || { page: 1, limit: 15, total: 0, totalPages: 0 };
+
+    const counter = document.getElementById('bills-records-counter');
+    if (counter) counter.textContent = `${state.sellingBillsPagination.total} consolidated bills`;
+
+    renderSellingBillsTable(state.sellingBills);
+    renderPaginationControls('bills-pagination', state.sellingBillsPagination, (p) => {
+      state.sellingBillsPagination.page = p;
+      fetchSellingBillsList();
+    });
+
+  } catch (err) {
+    console.error('Failed to fetch selling bills:', err);
+  }
+}
+
+function onBillFilterChange() {
+  state.sellingBillsPagination.page = 1;
+  fetchSellingBillsList();
+}
+
+function renderSellingBillsTable(bills) {
+  const tbody = document.getElementById('selling-bills-table-tbody');
+  if (!tbody) return;
+
+  if (!bills || bills.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="12" style="text-align: center; color: #94A3B8; padding: 32px;">
+          <div style="font-size: 1.8rem; margin-bottom: 6px;">📄</div>
+          <strong>No Consolidated Selling Bills Generated Yet</strong>
+          <p style="font-size: 0.85rem; margin-top: 4px;">Click the "+ Generate 5-6 Day Bill" button to create an official wholesale flower mandi statement.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = bills.map(b => {
+    const statusClass = b.payment_status === 'Paid' ? 'paid' : b.payment_status === 'Partial' ? 'info' : 'pending';
+    const coolieFreight = (Number(b.total_coolie || 0) + Number(b.total_transport || 0)).toLocaleString('en-IN');
+    const balDue = Number(b.balance_due || 0);
+
+    return `
+      <tr>
+        <td><span class="badge-code">${escapeHtml(b.bill_number)}</span></td>
+        <td>${escapeHtml(b.bill_date)}</td>
+        <td>
+          <strong>${escapeHtml(b.buyer_name)}</strong>
+          ${b.buyer_market ? `<br><small class="text-subtle">${escapeHtml(b.buyer_market)}</small>` : ''}
+        </td>
+        <td><span class="badge-tag info">${escapeHtml(b.period_from)} to ${escapeHtml(b.period_to)} (${b.billing_cycle_days}d)</span></td>
+        <td><strong>${b.total_weight_kg} kg</strong></td>
+        <td>₹${Number(b.gross_flower_amount).toLocaleString('en-IN')}</td>
+        <td>₹${coolieFreight}</td>
+        <td><strong>₹${Number(b.grand_total).toLocaleString('en-IN')}</strong></td>
+        <td><strong class="text-green">₹${Number(b.amount_paid).toLocaleString('en-IN')}</strong></td>
+        <td><strong class="${balDue > 0 ? 'text-rose' : 'text-green'}">₹${balDue.toLocaleString('en-IN')}</strong></td>
+        <td><span class="badge-tag ${statusClass}">${escapeHtml(b.payment_status)}</span></td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn btn-primary btn-xs" onclick="openSellingBillModal('${escapeHtml(b.id)}')" title="View Client Format Mandi Bill">👁️ View</button>
+            <a href="/api/selling/bills/${encodeURIComponent(b.id)}/export-excel" class="btn btn-outline btn-xs" target="_blank" title="Download Excel">📥 Excel</a>
+            ${b.payment_status !== 'Paid' ? `<button class="btn btn-outline btn-xs" onclick="openRecordBillPaymentModal('${escapeHtml(b.id)}')" title="Record Bill Payment">💰 Pay</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// --- BILL GENERATION WIZARD (5-6 DAY CONSOLIDATION) ---
+
+function openGenerateBillModal() {
+  const formSelect = document.getElementById('gen-bill-buyer-select');
+  if (formSelect) populateBuyerSelectDropdowns(state.buyers);
+  setBillCyclePreset(6); // Default 6 days
+  state.unbilledDistributions = [];
+  state.selectedUnbilledIds = new Set();
+  renderUnbilledDistributionsTable([]);
+  recalcBillTotals();
+  document.getElementById('generate-bill-modal')?.classList.remove('hidden');
+}
+
+function openGenerateBillModalForBuyer(buyerId) {
+  openGenerateBillModal();
+  const select = document.getElementById('gen-bill-buyer-select');
+  if (select) {
+    select.value = buyerId;
+    onGenerateBillBuyerChange(buyerId);
+  }
+}
+
+function closeGenerateBillModal() {
+  document.getElementById('generate-bill-modal')?.classList.add('hidden');
+}
+
+function setBillCyclePreset(days) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - (days - 1));
+
+  const startInput = document.getElementById('gen-bill-start-date');
+  const endInput = document.getElementById('gen-bill-end-date');
+  if (startInput) startInput.value = start.toISOString().split('T')[0];
+  if (endInput) endInput.value = end.toISOString().split('T')[0];
+
+  fetchUnbilledDistributionsForBill();
+}
+
+function onGenerateBillBuyerChange(buyerId) {
+  const buyer = state.buyers.find(b => b.id === buyerId);
+  if (buyer && buyer.billing_cycle_days) {
+    setBillCyclePreset(buyer.billing_cycle_days);
+  } else {
+    fetchUnbilledDistributionsForBill();
+  }
+}
+
+async function fetchUnbilledDistributionsForBill() {
+  const buyerId = document.getElementById('gen-bill-buyer-select')?.value;
+  const startDate = document.getElementById('gen-bill-start-date')?.value;
+  const endDate = document.getElementById('gen-bill-end-date')?.value;
+
+  if (!buyerId) {
+    renderUnbilledDistributionsTable([]);
+    return;
+  }
+
+  try {
+    let url = `/api/selling/unbilled-distributions?buyer_id=${encodeURIComponent(buyerId)}`;
+    if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+    if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+
+    const res = await authFetch(url);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    state.unbilledDistributions = data.distributions || [];
+    state.selectedUnbilledIds = new Set(state.unbilledDistributions.map(d => d.id));
+
+    // Update count display
+    const countEl = document.getElementById('unbilled-count');
+    if (countEl) countEl.textContent = state.unbilledDistributions.length;
+
+    // Set buyer previous balance display
+    const prevBalEl = document.getElementById('gen-calc-prev-bal');
+    if (prevBalEl) {
+      const prevBal = Number(data.buyer?.current_balance || 0);
+      prevBalEl.textContent = `₹${prevBal.toLocaleString('en-IN')}`;
+      prevBalEl.dataset.prevBal = prevBal;
+    }
+
+    renderUnbilledDistributionsTable(state.unbilledDistributions);
+    recalcBillTotals();
+
+  } catch (err) {
+    console.error('Failed to fetch unbilled distributions:', err);
+  }
+}
+
+function renderUnbilledDistributionsTable(items) {
+  const tbody = document.getElementById('unbilled-distributions-tbody');
+  if (!tbody) return;
+
+  if (!items || items.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94A3B8; padding: 20px;">No unbilled dispatches found for this buyer in the selected date range.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = items.map(d => {
+    const isChecked = state.selectedUnbilledIds.has(d.id);
+    return `
+      <tr>
+        <td><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleUnbilledItem('${d.id}', this.checked)"></td>
+        <td>${escapeHtml(d.distribution_date)}</td>
+        <td><span class="badge-tag info">📍 ${escapeHtml(d.procurement_origin)}</span></td>
+        <td>${escapeHtml(d.flower_type)}</td>
+        <td>${d.weight_kg} kg</td>
+        <td>₹${d.rate_per_kg}</td>
+        <td>₹${d.coolie_charge || 0}</td>
+        <td>₹${d.transport_charge || 0}</td>
+        <td><strong>₹${Number(d.total_amount).toLocaleString('en-IN')}</strong></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function toggleSelectAllUnbilled(checked) {
+  if (checked) {
+    state.selectedUnbilledIds = new Set(state.unbilledDistributions.map(d => d.id));
+  } else {
+    state.selectedUnbilledIds.clear();
+  }
+  renderUnbilledDistributionsTable(state.unbilledDistributions);
+  recalcBillTotals();
+}
+
+function toggleUnbilledItem(id, checked) {
+  if (checked) state.selectedUnbilledIds.add(id);
+  else state.selectedUnbilledIds.delete(id);
+  recalcBillTotals();
+}
+
+function recalcBillTotals() {
+  const selectedItems = state.unbilledDistributions.filter(d => state.selectedUnbilledIds.has(d.id));
+
+  let totalWeight = 0;
+  let grossFlowers = 0;
+  let coolieCharges = 0;
+  let transportCharges = 0;
+
+  selectedItems.forEach(d => {
+    totalWeight += Number(d.weight_kg || 0);
+    grossFlowers += Number(d.weight_kg || 0) * Number(d.rate_per_kg || 0);
+    coolieCharges += Number(d.coolie_charge || 0);
+    transportCharges += Number(d.transport_charge || 0);
+  });
+
+  const prevBal = parseFloat(document.getElementById('gen-calc-prev-bal')?.dataset?.prevBal || '0') || 0;
+  const discount = parseFloat(document.getElementById('gen-bill-discount')?.value) || 0;
+  const advance = parseFloat(document.getElementById('gen-bill-advance')?.value) || 0;
+
+  const currentBillTotal = grossFlowers + coolieCharges + transportCharges - discount;
+  const grandTotal = currentBillTotal + prevBal;
+
+  document.getElementById('gen-calc-weight').textContent = `${totalWeight.toFixed(1)} kg`;
+  document.getElementById('gen-calc-gross').textContent = `₹${grossFlowers.toLocaleString('en-IN')}`;
+  document.getElementById('gen-calc-charges').textContent = `₹${(coolieCharges + transportCharges).toLocaleString('en-IN')}`;
+  document.getElementById('gen-calc-grand-total').textContent = `₹${grandTotal.toLocaleString('en-IN')}`;
+}
+
+async function handleGenerateBillSubmit() {
+  const buyer_id = document.getElementById('gen-bill-buyer-select').value;
+  const period_from = document.getElementById('gen-bill-start-date').value;
+  const period_to = document.getElementById('gen-bill-end-date').value;
+  const distribution_ids = Array.from(state.selectedUnbilledIds);
+  const discount_amount = parseFloat(document.getElementById('gen-bill-discount').value) || 0;
+  const advance_paid = parseFloat(document.getElementById('gen-bill-advance').value) || 0;
+  const notes = document.getElementById('gen-bill-notes').value.trim();
+
+  if (!buyer_id) {
+    showToast('Please select a wholesale buyer.', 'warn');
+    return;
+  }
+  if (distribution_ids.length === 0) {
+    showToast('Please select at least one flower distribution dispatch to consolidate.', 'warn');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-generate-bill');
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await authFetch('/api/selling/bills/generate', {
+      method: 'POST',
+      body: JSON.stringify({ buyer_id, period_from, period_to, distribution_ids, discount_amount, advance_paid, notes })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to generate bill');
+
+    showToast(`Consolidated Mandi Bill #${data.bill_number} generated successfully!`, 'success');
+    closeGenerateBillModal();
+    fetchSellingBillsList();
+    fetchBuyersList();
+
+    // Immediately open printable bill modal
+    openSellingBillModal(data.id);
+
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// --- CLIENT WHOLESALE FLOWER COMMISSION MANDI INVOICE DISPLAY ---
+
+async function openSellingBillModal(billId) {
+  try {
+    const res = await authFetch(`/api/selling/bills/${encodeURIComponent(billId)}`);
+    if (!res.ok) throw new Error('Failed to load bill');
+
+    const data = await res.json();
+    state.currentSellingBill = data;
+    renderPrintableSellingBill(data);
+
+    document.getElementById('selling-bill-modal')?.classList.remove('hidden');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function renderPrintableSellingBill(data) {
+  const b = data.bill;
+  const items = data.items || [];
+  const buyer = data.buyer || {};
+
+  // Action Bar Status
+  const statusEl = document.getElementById('inv-status-pill');
+  if (statusEl) {
+    statusEl.textContent = (b.payment_status || 'Pending').toUpperCase();
+    statusEl.className = `badge-tag ${b.payment_status === 'Paid' ? 'paid' : b.payment_status === 'Partial' ? 'info' : 'pending'}`;
+  }
+  document.getElementById('inv-bill-num-top').textContent = `BILL #${b.bill_number}`;
+
+  // Cycle Tag
+  document.getElementById('inv-cycle-label').textContent = `${b.billing_cycle_days || 6}-DAY SETTLEMENT CYCLE`;
+
+  // Buyer Info
+  document.getElementById('inv-buyer-name').textContent = buyer.name || b.buyer_name;
+  document.getElementById('inv-buyer-city').textContent = buyer.market_city || 'Wholesale Flower Market';
+  document.getElementById('inv-buyer-phone').textContent = buyer.phone || '—';
+  document.getElementById('inv-buyer-id').textContent = buyer.id || '—';
+
+  // Invoice Meta
+  document.getElementById('inv-bill-number').textContent = b.bill_number;
+  document.getElementById('inv-bill-date').textContent = b.bill_date;
+  document.getElementById('inv-period').textContent = `${b.period_from} to ${b.period_to} (${b.billing_cycle_days || 6} Days)`;
+  document.getElementById('inv-due-date').textContent = b.due_date || '—';
+
+  // Populate Itemized Table
+  const tbody = document.getElementById('inv-items-tbody');
+  if (tbody) {
+    tbody.innerHTML = items.map((it, idx) => `
+      <tr>
+        <td style="text-align: center;">${idx + 1}</td>
+        <td>${escapeHtml(it.item_date)}</td>
+        <td><strong>📍 ${escapeHtml(it.procurement_origin)}</strong></td>
+        <td>${escapeHtml(it.flower_type)} ${it.variety ? `<small>(${escapeHtml(it.variety)})</small>` : ''}</td>
+        <td style="text-align: right;">${it.weight_kg} kg</td>
+        <td style="text-align: right;">₹${it.rate_per_kg}</td>
+        <td style="text-align: right;">₹${Number(it.flower_amount).toLocaleString('en-IN')}</td>
+        <td style="text-align: right;">₹${Number(it.coolie_charge || 0).toLocaleString('en-IN')}</td>
+        <td style="text-align: right;">₹${Number(it.transport_charge || 0).toLocaleString('en-IN')}</td>
+        <td style="text-align: right; font-weight: 700;">₹${Number(it.total_item_amount).toLocaleString('en-IN')}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Footers
+  document.getElementById('inv-foot-kg').textContent = `${b.total_weight_kg} kg`;
+  document.getElementById('inv-foot-gross').textContent = `₹${Number(b.gross_flower_amount).toLocaleString('en-IN')}`;
+  document.getElementById('inv-foot-coolie').textContent = `₹${Number(b.total_coolie || 0).toLocaleString('en-IN')}`;
+  document.getElementById('inv-foot-freight').textContent = `₹${Number(b.total_transport || 0).toLocaleString('en-IN')}`;
+  document.getElementById('inv-foot-total').textContent = `₹${Number(b.subtotal_amount).toLocaleString('en-IN')}`;
+
+  // Totals Box
+  document.getElementById('inv-calc-weight').textContent = `${b.total_weight_kg} kg`;
+  document.getElementById('inv-calc-gross').textContent = `₹${Number(b.gross_flower_amount).toLocaleString('en-IN')}`;
+  document.getElementById('inv-calc-coolie').textContent = `₹${Number(b.total_coolie || 0).toLocaleString('en-IN')}`;
+  document.getElementById('inv-calc-freight').textContent = `₹${Number(b.total_transport || 0).toLocaleString('en-IN')}`;
+
+  const discRow = document.getElementById('inv-discount-row');
+  if (b.discount_amount > 0) {
+    discRow.style.display = 'flex';
+    document.getElementById('inv-calc-discount').textContent = `-₹${Number(b.discount_amount).toLocaleString('en-IN')}`;
+  } else {
+    discRow.style.display = 'none';
+  }
+
+  document.getElementById('inv-calc-subtotal').textContent = `₹${Number(b.subtotal_amount).toLocaleString('en-IN')}`;
+  document.getElementById('inv-calc-prev-bal').textContent = `₹${Number(b.previous_balance || 0).toLocaleString('en-IN')}`;
+  document.getElementById('inv-calc-grand-total').textContent = `₹${Number(b.grand_total).toLocaleString('en-IN')}`;
+  document.getElementById('inv-calc-paid').textContent = `₹${Number(b.amount_paid || 0).toLocaleString('en-IN')}`;
+  document.getElementById('inv-calc-bal-due').textContent = `₹${Number(b.balance_due || 0).toLocaleString('en-IN')}`;
+}
+
+function closeSellingBillModal() {
+  document.getElementById('selling-bill-modal')?.classList.add('hidden');
+}
+
+function printSellingBill() {
+  window.print();
+}
+
+function exportCurrentBillExcel() {
+  if (!state.currentSellingBill?.bill?.id) return;
+  window.open(`/api/selling/bills/${encodeURIComponent(state.currentSellingBill.bill.id)}/export-excel`, '_blank');
+}
+
+function shareBillWhatsApp() {
+  if (!state.currentSellingBill?.bill) return;
+  const b = state.currentSellingBill.bill;
+  const buyer = state.currentSellingBill.buyer;
+
+  const msg = `*FRESH BLOOMS WHOLESALE FLOWER MANDI*\n` +
+    `*Bill No:* ${b.bill_number}\n` +
+    `*Buyer:* ${buyer.name} (${buyer.market_city})\n` +
+    `*Period:* ${b.period_from} to ${b.period_to} (${b.billing_cycle_days} Days)\n` +
+    `*Total Flowers:* ${b.total_weight_kg} kg\n` +
+    `*Current Bill Subtotal:* ₹${Number(b.subtotal_amount).toLocaleString('en-IN')}\n` +
+    `*Previous Arrears:* ₹${Number(b.previous_balance || 0).toLocaleString('en-IN')}\n` +
+    `*Grand Total Payable:* ₹${Number(b.grand_total).toLocaleString('en-IN')}\n` +
+    `*Amount Received:* ₹${Number(b.amount_paid || 0).toLocaleString('en-IN')}\n` +
+    `*Balance Due:* ₹${Number(b.balance_due || 0).toLocaleString('en-IN')}\n\n` +
+    `_Bank: SBI A/c 38920192847 IFSC: SBIN0001234 • UPI: freshblooms@sbi_`;
+
+  const phone = (buyer.phone || '').replace(/[^0-9]/g, '');
+  const url = phone ? `https://wa.me/91${phone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+// --- BUYER PAYMENT RECORDING ---
+
+function openRecordBuyerPayment(buyerId) {
+  const buyer = state.buyers.find(b => b.id === buyerId);
+  if (!buyer) return;
+
+  document.getElementById('buyer-pay-buyer-id').value = buyer.id;
+  document.getElementById('buyer-pay-bill-id').value = '';
+  document.getElementById('buyer-pay-name').textContent = `${buyer.name} (${buyer.market_city})`;
+  document.getElementById('buyer-pay-balance').textContent = `₹${Number(buyer.current_balance).toLocaleString('en-IN')}`;
+  document.getElementById('buyer-pay-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('buyer-pay-amount').value = Math.max(0, buyer.current_balance || 0);
+
+  document.getElementById('buyer-payment-modal')?.classList.remove('hidden');
+}
+
+function openRecordBillPaymentModal(billId = null) {
+  const id = billId || state.currentSellingBill?.bill?.id;
+  if (!id) return;
+
+  const bill = state.sellingBills.find(b => b.id === id) || state.currentSellingBill?.bill;
+  const buyerId = bill.buyer_id;
+  const buyer = state.buyers.find(b => b.id === buyerId) || state.currentSellingBill?.buyer || {};
+
+  document.getElementById('buyer-pay-buyer-id').value = buyerId;
+  document.getElementById('buyer-pay-bill-id').value = id;
+  document.getElementById('buyer-pay-name').textContent = `${buyer.name || bill.buyer_name} (Bill #${bill.bill_number})`;
+  document.getElementById('buyer-pay-balance').textContent = `₹${Number(bill.balance_due || buyer.current_balance || 0).toLocaleString('en-IN')}`;
+  document.getElementById('buyer-pay-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('buyer-pay-amount').value = Math.max(0, bill.balance_due || 0);
+
+  document.getElementById('buyer-payment-modal')?.classList.remove('hidden');
+}
+
+function closeBuyerPaymentModal() {
+  document.getElementById('buyer-payment-modal')?.classList.add('hidden');
+}
+
+async function handleBuyerPaymentSubmit(e) {
+  e.preventDefault();
+  const buyerId = document.getElementById('buyer-pay-buyer-id').value;
+  const billId = document.getElementById('buyer-pay-bill-id').value;
+  const payment_date = document.getElementById('buyer-pay-date').value;
+  const amount = parseFloat(document.getElementById('buyer-pay-amount').value);
+  const payment_mode = document.getElementById('buyer-pay-mode').value;
+  const reference_number = document.getElementById('buyer-pay-ref').value.trim();
+  const notes = document.getElementById('buyer-pay-notes').value.trim();
+
+  const btn = document.getElementById('btn-save-buyer-payment');
+  if (btn) btn.disabled = true;
+
+  try {
+    const url = billId ? `/api/selling/bills/${encodeURIComponent(billId)}/payment` : `/api/buyers/${encodeURIComponent(buyerId)}/payment`;
+    const res = await authFetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ payment_date, amount, payment_mode, reference_number, notes })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Payment recording failed');
+
+    showToast(`Payment of ₹${amount.toLocaleString('en-IN')} recorded successfully!`, 'success');
+    closeBuyerPaymentModal();
+    if (billId && state.currentSellingBill?.bill?.id === billId) {
+      openSellingBillModal(billId);
+    }
+    fetchBuyersList();
+    fetchSellingBillsList();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// --- FARMER SETTLEMENT STATEMENT (15, 20, 30 DAYS & COMMISSION %) ---
+
+async function openFarmerStatementModal(farmerId) {
+  try {
+    state.currentStatementFarmerId = farmerId;
+    const res = await authFetch(`/api/farmers/${encodeURIComponent(farmerId)}/billing-statement`);
+    if (!res.ok) throw new Error('Failed to load farmer statement');
+
+    const data = await res.json();
+    state.currentFarmerStatement = data;
+
+    const f = data.farmer;
+    const s = data.summary;
+    const cols = data.collections || [];
+
+    document.getElementById('stmt-farmer-sub').textContent =
+      `${f.full_name} (${f.id}) • ${f.village} • Settlement Cycle: ${f.billing_cycle_days || 15} Days • Commission: ${f.commission_rate ?? 10}%`;
+
+    document.getElementById('stmt-cycle-days').textContent = `${f.billing_cycle_days || 15} Days`;
+    document.getElementById('stmt-commission-rate').textContent = `${f.commission_rate ?? 10}%`;
+    document.getElementById('stmt-gross-amount').textContent = `₹${Number(s.gross_harvest).toLocaleString('en-IN')}`;
+    document.getElementById('stmt-total-kg').textContent = `${s.total_kg} kg supplied`;
+    document.getElementById('stmt-commission-amount').textContent = `₹${Number(s.total_commission).toLocaleString('en-IN')}`;
+    document.getElementById('stmt-net-payout').textContent = `₹${Number(s.net_farmer_payout).toLocaleString('en-IN')}`;
+    document.getElementById('stmt-paid-pending').textContent = `₹${Number(s.paid_payout).toLocaleString('en-IN')} Paid • ₹${Number(s.pending_payout).toLocaleString('en-IN')} Due`;
+
+    const tbody = document.getElementById('farmer-statement-tbody');
+    if (tbody) {
+      if (cols.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #94A3B8; padding: 24px;">No flower collections recorded for this farmer yet.</td></tr>`;
+      } else {
+        tbody.innerHTML = cols.map(c => `
+          <tr>
+            <td><span class="badge-code">${c.id}</span></td>
+            <td>${escapeHtml(c.collection_date)}</td>
+            <td>${escapeHtml(c.flower_type)} ${c.variety ? `<small>(${escapeHtml(c.variety)})</small>` : ''}</td>
+            <td><strong>${c.quantity_kg} kg</strong></td>
+            <td>₹${c.rate_per_kg}</td>
+            <td>₹${Number(c.gross_amount).toLocaleString('en-IN')}</td>
+            <td>${c.commission_rate}%</td>
+            <td class="text-rose">₹${Number(c.commission_amount).toLocaleString('en-IN')}</td>
+            <td><strong class="text-green">₹${Number(c.net_amount).toLocaleString('en-IN')}</strong></td>
+            <td><span class="badge-tag ${c.payment_status === 'Paid' ? 'paid' : 'pending'}">${c.payment_status}</span></td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    document.getElementById('farmer-statement-modal')?.classList.remove('hidden');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function closeFarmerStatementModal() {
+  document.getElementById('farmer-statement-modal')?.classList.add('hidden');
+}
+
+function exportCurrentFarmerStatementCsv() {
+  if (!state.currentStatementFarmerId) return;
+  window.open(`/api/farmers/${encodeURIComponent(state.currentStatementFarmerId)}/export-statement-csv`, '_blank');
+}
+
+// --- EXCEL & CSV BULK IMPORTS ---
+
+let selectedImportFile = null;
+
+function openExcelImportModal() {
+  selectedImportFile = null;
+  const fileNameEl = document.getElementById('import-file-name');
+  if (fileNameEl) fileNameEl.textContent = 'No file chosen yet';
+  const statusBox = document.getElementById('import-status-box');
+  if (statusBox) statusBox.className = 'hidden';
+  onImportTypeChange(document.getElementById('import-entity-type')?.value || 'buyers');
+  document.getElementById('excel-import-modal')?.classList.remove('hidden');
+}
+
+function closeExcelImportModal() {
+  document.getElementById('excel-import-modal')?.classList.add('hidden');
+}
+
+function onImportTypeChange(type) {
+  const hintEl = document.getElementById('import-format-hint');
+  if (!hintEl) return;
+  if (type === 'buyers') {
+    hintEl.textContent = 'Columns: name, phone, market_city, billing_cycle_days (5 or 6), credit_limit';
+  } else if (type === 'distributions') {
+    hintEl.textContent = 'Columns: buyer_name, procurement_origin, flower_type, weight_kg, rate_per_kg, coolie_charge';
+  } else if (type === 'farmers') {
+    hintEl.textContent = 'Columns: full_name, contact_number, village, billing_cycle_days (15, 20, 30), commission_rate (10)';
+  } else {
+    hintEl.textContent = 'Columns: farmer_name, flower_type, quantity_kg, rate_per_kg, payment_status';
+  }
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  selectedImportFile = file;
+  const fileNameEl = document.getElementById('import-file-name');
+  if (fileNameEl) fileNameEl.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+}
+
+function downloadSampleTemplate() {
+  const type = document.getElementById('import-entity-type')?.value || 'buyers';
+  let csvContent = '';
+  let filename = `sample_${type}.csv`;
+
+  if (type === 'buyers') {
+    csvContent = `name,contact_person,phone,market_city,billing_cycle_days,credit_limit,address\n` +
+      `"Kalyani Flower Stores","K. Kalyanaraman","9840123456","Koyambedu Market, Chennai",6,50000,"Stall 42 Koyambedu"\n` +
+      `"Murugan Floral Traders","M. Murugan","9840234567","Mattuthavani Market, Madurai",5,40000,"Stall 18 Madurai"`;
+  } else if (type === 'distributions') {
+    csvContent = `buyer_name,distribution_date,procurement_origin,flower_type,variety,weight_kg,rate_per_kg,coolie_charge,transport_charge,vehicle_number\n` +
+      `"Kalyani Flower Stores","2026-10-30","Thovalai","Jasmine","Grade A Mogra",40.0,450,150,200,"TN-74-E-1234"\n` +
+      `"Murugan Floral Traders","2026-10-30","Nilakottai","Rose","Red Button",60.0,220,180,250,"TN-57-B-5678"`;
+  } else if (type === 'farmers') {
+    csvContent = `full_name,contact_number,village,billing_cycle_days,commission_rate,notes\n` +
+      `"A. Palanivel","9842100001","Thovalai",15,10.0,"Mogra Jasmine 2 acres"\n` +
+      `"S. Ramasamy","9842100002","Nilakottai",20,10.0,"Button Rose 3 acres"\n` +
+      `"M. Selvam","9842100003","Hosur",30,12.0,"Dutch Rose greenhouse"`;
+  } else {
+    csvContent = `farmer_id,collection_date,flower_type,variety,quantity_kg,rate_per_kg,payment_status\n` +
+      `"FAR-1001","2026-10-30","Jasmine","Grade A",25.0,380,"Pending"`;
+  }
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function executeDataImport() {
+  if (!selectedImportFile) {
+    showToast('Please select a CSV or Excel file to upload.', 'warn');
+    return;
+  }
+
+  const type = document.getElementById('import-entity-type')?.value || 'buyers';
+  const statusBox = document.getElementById('import-status-box');
+  const btn = document.getElementById('btn-submit-import');
+
+  if (btn) btn.disabled = true;
+
+  try {
+    const text = await selectedImportFile.text();
+    const rows = parseCsvText(text);
+
+    if (rows.length === 0) {
+      throw new Error('CSV file is empty or headers could not be parsed.');
+    }
+
+    const payloadKey = type === 'farmers' ? 'farmers' : type === 'buyers' ? 'buyers' : type === 'distributions' ? 'distributions' : 'collections';
+
+    const res = await authFetch(`/api/import/${type}`, {
+      method: 'POST',
+      body: JSON.stringify({ [payloadKey]: rows })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Import failed');
+
+    statusBox.className = 'calc-highlight-box';
+    statusBox.style.color = '#15803D';
+    statusBox.innerHTML = `<strong>Import Successful!</strong> Successfully processed ${result.importedCount || result.imported || rows.length} records into ${type}.`;
+
+    showToast(`Bulk imported ${result.importedCount || result.imported || rows.length} records!`, 'success');
+
+    // Refresh view
+    if (type === 'buyers') fetchBuyersList();
+    else if (type === 'distributions') fetchDistributionsList();
+    else if (type === 'farmers') fetchFarmersList();
+    else if (type === 'collections') fetchCollectionsList();
+
+  } catch (err) {
+    statusBox.className = 'calc-highlight-box';
+    statusBox.style.color = '#DC2626';
+    statusBox.innerHTML = `<strong>Import Error:</strong> ${escapeHtml(err.message)}`;
+    showToast(err.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function parseCsvText(csv) {
+  const lines = csv.split(/\r\n|\n/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+  const data = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const rawCols = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    const obj = {};
+    headers.forEach((h, idx) => {
+      let val = rawCols[idx] ? rawCols[idx].trim().replace(/^["']|["']$/g, '') : '';
+      obj[h] = val;
+    });
+    data.push(obj);
+  }
+  return data;
 }
 
 // =========================================================

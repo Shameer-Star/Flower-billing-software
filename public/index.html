@@ -126,6 +126,12 @@
           <span class="nav-label" data-i18n="nav_collections">Flower Collections</span>
         </button>
 
+        <button class="nav-item" data-view="selling" onclick="navigateTo('selling')">
+          <span class="nav-icon">🛒</span>
+          <span class="nav-label" data-i18n="nav_selling">Selling & Buyers</span>
+          <span class="nav-badge" id="nav-buyers-count">25</span>
+        </button>
+
         <button class="nav-item" data-view="reports" onclick="navigateTo('reports')">
           <span class="nav-icon">📈</span>
           <span class="nav-label" data-i18n="nav_reports">Reports & Exports</span>
@@ -579,6 +585,278 @@
           </div>
         </section>
 
+        <!-- ==================== VIEW: SELLING MANAGEMENT MODULE (20-25 BUYERS) ==================== -->
+        <section id="view-selling" class="app-view hidden">
+          <div class="view-header">
+            <div>
+              <h2>Wholesale Selling Management</h2>
+              <p class="subtitle">20–25 wholesale buyer accounts, regional procurement distribution tracking, and consolidated 5–6 day selling bills</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-primary btn-sm" onclick="openNewDistributionModal()">
+                <span>🌸 + Record Distribution</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="openGenerateBillModal()">
+                <span>📄 + Generate 5-6 Day Bill</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="openNewBuyerModal()">
+                <span>👥 + Register Buyer</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Top Sub-Navigation Tabs for Selling Management -->
+          <div class="selling-tab-bar">
+            <button class="selling-tab active" id="tab-btn-buyers" onclick="switchSellingTab('buyers')">
+              <span>👥 Wholesale Buyers (20–25)</span>
+              <span class="selling-tab-badge" id="badge-total-buyers">25</span>
+            </button>
+            <button class="selling-tab" id="tab-btn-distributions" onclick="switchSellingTab('distributions')">
+              <span>🚚 Origin Distributions</span>
+              <span class="selling-tab-badge" id="badge-total-dists">0</span>
+            </button>
+            <button class="selling-tab" id="tab-btn-selling-bills" onclick="switchSellingTab('bills')">
+              <span>📄 Consolidated 5–6 Day Bills</span>
+              <span class="selling-tab-badge" id="badge-total-bills">0</span>
+            </button>
+          </div>
+
+          <!-- SUB-TAB 1: BUYERS DIRECTORY (20-25 BUYERS) -->
+          <div id="selling-subtab-buyers" class="selling-subtab">
+            <!-- 4 Buyers KPI Summary Cards -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-header">
+                  <span class="stat-title">Active Wholesale Buyers</span>
+                  <span class="stat-icon-wrap bg-blue">🏪</span>
+                </div>
+                <div class="stat-number" id="buyers-stat-count">25</div>
+                <div class="stat-sub" id="buyers-stat-cities">Across major Tamil Nadu markets</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-header">
+                  <span class="stat-title">Total Outstanding Dues</span>
+                  <span class="stat-icon-wrap bg-rose">₹</span>
+                </div>
+                <div class="stat-number text-rose" id="buyers-stat-outstanding">₹0</div>
+                <div class="stat-sub">Pending collection across buyers</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-header">
+                  <span class="stat-title">Total Credit Limit</span>
+                  <span class="stat-icon-wrap bg-emerald">🛡️</span>
+                </div>
+                <div class="stat-number" id="buyers-stat-credit">₹0</div>
+                <div class="stat-sub">Authorized buyer credit limits</div>
+              </div>
+              <div class="stat-card highlight-card">
+                <div class="stat-header">
+                  <span class="stat-title">Consolidated Cycles</span>
+                  <span class="stat-icon-wrap bg-amber">⏱️</span>
+                </div>
+                <div class="stat-number">5 & 6 Days</div>
+                <div class="stat-sub">Wholesale statement billing cycles</div>
+              </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar-card">
+              <div class="toolbar-left">
+                <div class="search-input-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input type="text" id="buyer-search-input" placeholder="Search buyer name, city, phone..." oninput="onBuyerSearchChange(this.value)">
+                </div>
+                <select id="buyer-city-filter" onchange="onBuyerFilterChange()">
+                  <option value="">All Market Cities</option>
+                </select>
+                <select id="buyer-status-filter" onchange="onBuyerFilterChange()">
+                  <option value="">All Statuses</option>
+                  <option value="active" selected>Active Buyers</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div class="toolbar-right">
+                <button class="btn btn-outline btn-xs" onclick="exportBuyersCsv()">
+                  <span>📥 Export Buyers CSV</span>
+                </button>
+                <span class="records-counter" id="buyers-records-counter">25 buyers</span>
+              </div>
+            </div>
+
+            <!-- Buyers Table -->
+            <div class="content-card">
+              <div class="table-responsive">
+                <table class="table" id="buyers-main-table">
+                  <thead>
+                    <tr>
+                      <th>Buyer ID</th>
+                      <th>Business Name</th>
+                      <th>Market / City</th>
+                      <th>Contact Person & Phone</th>
+                      <th>Cycle</th>
+                      <th>Credit Limit (₹)</th>
+                      <th>Outstanding Balance (₹)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="buyers-table-tbody"></tbody>
+                </table>
+              </div>
+              <div class="pagination-footer" id="buyers-pagination"></div>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 2: FLOWER DISTRIBUTIONS (TRACKED FROM PROCUREMENT ORIGINS) -->
+          <div id="selling-subtab-distributions" class="selling-subtab hidden">
+            <!-- Procurement Origin Volume Badges Banner -->
+            <div class="content-card origin-banner-card">
+              <div class="origin-banner-header">
+                <div>
+                  <h4 style="font-weight: 700; color: #0F172A;">Procurement Origin Distribution Tracking</h4>
+                  <p class="text-subtle">Regional flower dispatches to buyers from Thovalai, Nilakottai, Hosur, Sathyamangalam, Sankarankovil & Denkanikottai</p>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openNewDistributionModal()">
+                  <span>+ Record Distribution Dispatch</span>
+                </button>
+              </div>
+              <div class="origin-chips-container" id="origin-location-chips">
+                <!-- Dynamically populated chips -->
+              </div>
+            </div>
+
+            <!-- Distributions Toolbar -->
+            <div class="toolbar-card">
+              <div class="toolbar-left">
+                <div class="search-input-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input type="text" id="dist-search-input" placeholder="Search buyer, ID, or vehicle..." oninput="onDistFilterChange()">
+                </div>
+                <select id="dist-location-filter" onchange="onDistFilterChange()">
+                  <option value="">All Procurement Origins</option>
+                  <option value="Thovalai">Thovalai (Kanyakumari)</option>
+                  <option value="Nilakottai">Nilakottai (Dindigul)</option>
+                  <option value="Hosur">Hosur (Krishnagiri)</option>
+                  <option value="Sathyamangalam">Sathyamangalam (Erode)</option>
+                  <option value="Sankarankovil">Sankarankovil (Tenkasi)</option>
+                  <option value="Denkanikottai">Denkanikottai</option>
+                  <option value="Andipatti">Andipatti</option>
+                  <option value="Musiri">Musiri</option>
+                </select>
+                <select id="dist-flower-filter" onchange="onDistFilterChange()">
+                  <option value="">All Flowers</option>
+                  <option value="Jasmine">Jasmine</option>
+                  <option value="Rose">Rose</option>
+                  <option value="Marigold">Marigold</option>
+                  <option value="Chrysanthemum">Chrysanthemum</option>
+                  <option value="Crossandra">Crossandra</option>
+                  <option value="Lotus">Lotus</option>
+                  <option value="Tuberose">Tuberose</option>
+                </select>
+                <select id="dist-bill-status-filter" onchange="onDistFilterChange()">
+                  <option value="">All Bill Statuses</option>
+                  <option value="unbilled">Unbilled (Awaiting Consolidation)</option>
+                  <option value="billed">Billed</option>
+                </select>
+              </div>
+              <div class="toolbar-right">
+                <button class="btn btn-outline btn-xs" onclick="exportDistributionsCsv()">
+                  <span>📥 Export Distributions CSV</span>
+                </button>
+                <span class="records-counter" id="dist-records-counter">0 distributions</span>
+              </div>
+            </div>
+
+            <!-- Distribution Ledger Table -->
+            <div class="content-card">
+              <div class="table-responsive">
+                <table class="table" id="distributions-main-table">
+                  <thead>
+                    <tr>
+                      <th>Dist ID</th>
+                      <th>Date</th>
+                      <th>Buyer</th>
+                      <th>Procurement Origin</th>
+                      <th>Flower Variety</th>
+                      <th>Quantity (kg)</th>
+                      <th>Rate (₹/kg)</th>
+                      <th>Total (₹)</th>
+                      <th>Coolie & Freight (₹)</th>
+                      <th>Vehicle</th>
+                      <th>Bill Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="distributions-table-tbody"></tbody>
+                </table>
+              </div>
+              <div class="pagination-footer" id="distributions-pagination"></div>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 3: CONSOLIDATED 5-6 DAY SELLING BILLS -->
+          <div id="selling-subtab-bills" class="selling-subtab hidden">
+            <div class="view-header" style="margin-bottom: 14px;">
+              <div>
+                <h3>Consolidated 5–6 Day Selling Statements</h3>
+                <p class="subtitle">Official buyer invoices rendered in client's wholesale flower commission mandi format</p>
+              </div>
+              <div class="header-actions">
+                <button class="btn btn-outline btn-sm" onclick="exportSellingBillsCsv()">
+                  <span>📥 Export Bills CSV</span>
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="openGenerateBillModal()">
+                  <span>📄 + Generate 5-6 Day Bill</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar-card">
+              <div class="toolbar-left">
+                <div class="search-input-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input type="text" id="bill-search-input" placeholder="Search Bill No or Buyer..." oninput="onBillFilterChange()">
+                </div>
+                <select id="bill-pay-filter" onchange="onBillFilterChange()">
+                  <option value="">All Payment Statuses</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Partial">Partial</option>
+                  <option value="Pending">Pending</option>
+                </select>
+              </div>
+              <div class="toolbar-right">
+                <span class="records-counter" id="bills-records-counter">0 bills</span>
+              </div>
+            </div>
+
+            <!-- Bills Table -->
+            <div class="content-card">
+              <div class="table-responsive">
+                <table class="table" id="selling-bills-main-table">
+                  <thead>
+                    <tr>
+                      <th>Bill No</th>
+                      <th>Date</th>
+                      <th>Buyer Name</th>
+                      <th>Consolidated Cycle</th>
+                      <th>Total kg</th>
+                      <th>Gross Flowers (₹)</th>
+                      <th>Coolie & Freight (₹)</th>
+                      <th>Total Payable (₹)</th>
+                      <th>Paid (₹)</th>
+                      <th>Balance Due (₹)</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="selling-bills-table-tbody"></tbody>
+                </table>
+              </div>
+              <div class="pagination-footer" id="bills-pagination"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- ==================== VIEW 5: REPORTS & EXPORTS ==================== -->
         <section id="view-reports" class="app-view hidden">
           <div class="view-header">
@@ -588,13 +866,25 @@
             </div>
             <div class="header-actions">
               <button class="btn btn-outline btn-sm" onclick="exportCollectionsCsv()">
-                <span>📥 Export Collections CSV</span>
+                <span>📥 Collections CSV</span>
               </button>
               <button class="btn btn-outline btn-sm" onclick="exportFarmersCsv()">
-                <span>📥 Export Farmers CSV</span>
+                <span>📥 Farmers CSV</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="exportBuyersCsv()">
+                <span>📥 Buyers CSV</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="exportDistributionsCsv()">
+                <span>📥 Distributions CSV</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="exportSellingBillsCsv()">
+                <span>📥 Selling Bills CSV</span>
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="openExcelImportModal()">
+                <span>📤 Import Data (Excel / CSV)</span>
               </button>
               <button class="btn btn-outline btn-sm" onclick="window.print()">
-                <span>🖨️ Print Summary</span>
+                <span>🖨️ Print</span>
               </button>
             </div>
           </div>
@@ -848,6 +1138,23 @@
             </div>
           </div>
           <small class="text-subtle">Providing verified coordinates will initiate the 15-day review cycle immediately.</small>
+        </div>
+
+        <div class="form-row-2" style="margin-top: 10px;">
+          <div class="form-group">
+            <label for="farmer-billing-cycle">Billing Settlement Cycle *</label>
+            <select id="farmer-billing-cycle" required>
+              <option value="15" selected>15 Days Cycle (Standard)</option>
+              <option value="20">20 Days Cycle (Custom)</option>
+              <option value="30">30 Days Cycle (Monthly)</option>
+            </select>
+            <small class="text-subtle">Client requirement: 15, 20, or 30-day payout cycles.</small>
+          </div>
+          <div class="form-group">
+            <label for="farmer-commission-rate">Mandi Commission (%) *</label>
+            <input type="number" id="farmer-commission-rate" step="0.5" min="0" max="50" value="10" required placeholder="Default 10%">
+            <small class="text-subtle">Editable commission (10% default, customizable per farmer).</small>
+          </div>
         </div>
 
         <div class="form-group" style="margin-top: 14px;">
@@ -1236,8 +1543,672 @@
             </thead>
             <tbody id="fp-audit-tbody"></tbody>
           </table>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: REGISTER / EDIT WHOLESALE BUYER ==================== -->
+  <div id="new-buyer-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeNewBuyerModal()">×</button>
+      <div class="modal-header">
+        <h3 id="buyer-modal-title">Register Wholesale Flower Buyer</h3>
+        <p>Add wholesale flower merchant, floral decorator, or export partner to directory</p>
+      </div>
+      <form id="new-buyer-form" onsubmit="handleCreateBuyer(event)">
+        <input type="hidden" id="buyer-edit-id">
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="buyer-name">Buyer / Shop Name *</label>
+            <input type="text" id="buyer-name" placeholder="e.g. Kalyani Flower Stores" required>
+          </div>
+          <div class="form-group">
+            <label for="buyer-name-ta">Tamil Name (Optional)</label>
+            <input type="text" id="buyer-name-ta" placeholder="e.g. கல்யாணி மலர் அங்காடி">
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="buyer-contact-person">Contact Person</label>
+            <input type="text" id="buyer-contact-person" placeholder="e.g. K. Kalyanaraman">
+          </div>
+          <div class="form-group">
+            <label for="buyer-phone">Contact Phone *</label>
+            <input type="tel" id="buyer-phone" placeholder="e.g. 9840123456" required>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="buyer-market-city">Wholesale Market / City *</label>
+            <input type="text" id="buyer-market-city" placeholder="e.g. Koyambedu Market, Chennai" required>
+          </div>
+          <div class="form-group">
+            <label for="buyer-email">Email Address</label>
+            <input type="email" id="buyer-email" placeholder="e.g. orders@kalyaniflowers.com">
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="buyer-billing-cycle">Consolidated Billing Cycle *</label>
+            <select id="buyer-billing-cycle" required>
+              <option value="5">5-Day Consolidated Cycle</option>
+              <option value="6" selected>6-Day Consolidated Cycle (Client Mandi Standard)</option>
+            </select>
+            <small class="text-subtle">Client requirement: 5–6 day consolidated selling bills.</small>
+          </div>
+          <div class="form-group">
+            <label for="buyer-credit-limit">Credit Limit (₹)</label>
+            <input type="number" id="buyer-credit-limit" min="0" step="5000" value="50000" placeholder="e.g. 50000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="buyer-address">Address & Mandi Stall Details</label>
+          <input type="text" id="buyer-address" placeholder="e.g. Stall #42, Wholesale Flower Complex, Koyambedu">
+        </div>
+
+        <div class="form-group">
+          <label for="buyer-notes">Notes / Special Instructions</label>
+          <textarea id="buyer-notes" rows="2" placeholder="e.g. Daily morning dispatch via midnight express transport"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-save-buyer">
+          Save Wholesale Buyer
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: RECORD FLOWER DISTRIBUTION DISPATCH ==================== -->
+  <div id="new-distribution-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeNewDistributionModal()">×</button>
+      <div class="modal-header">
+        <h3>Record Flower Distribution Dispatch</h3>
+        <p>Track regional dispatches to buyers from specific procurement origins</p>
+      </div>
+      <form id="new-distribution-form" onsubmit="handleCreateDistribution(event)">
+        <div class="form-group">
+          <label for="dist-buyer-select">Target Wholesale Buyer *</label>
+          <select id="dist-buyer-select" required>
+            <option value="">-- Choose Wholesale Buyer (20-25 Active) --</option>
+          </select>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="dist-date">Dispatch Date *</label>
+            <input type="date" id="dist-date" required>
+          </div>
+          <div class="form-group">
+            <label for="dist-procurement-origin">Procurement Origin *</label>
+            <select id="dist-procurement-origin" required>
+              <option value="Thovalai">Thovalai (Kanyakumari)</option>
+              <option value="Nilakottai">Nilakottai (Dindigul)</option>
+              <option value="Hosur">Hosur (Krishnagiri)</option>
+              <option value="Sathyamangalam">Sathyamangalam (Erode)</option>
+              <option value="Sankarankovil">Sankarankovil (Tenkasi)</option>
+              <option value="Denkanikottai">Denkanikottai</option>
+              <option value="Andipatti">Andipatti</option>
+              <option value="Musiri">Musiri</option>
+              <option value="Other">Other Farm Source</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="dist-flower-type">Flower Type *</label>
+            <select id="dist-flower-type" required>
+              <option value="Jasmine">Jasmine (Mogra/Sevvanthi)</option>
+              <option value="Rose">Rose (Red/Pink)</option>
+              <option value="Marigold">Marigold (Yellow/Orange)</option>
+              <option value="Chrysanthemum">Chrysanthemum</option>
+              <option value="Lotus">Lotus</option>
+              <option value="Tuberose">Tuberose</option>
+              <option value="Crossandra">Crossandra (Kanakambaram)</option>
+              <option value="Lily">Lily</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="dist-variety">Variety / Grade</label>
+            <input type="text" id="dist-variety" placeholder="e.g. Export Grade / Button Rose">
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="dist-weight">Quantity (kg) *</label>
+            <input type="number" id="dist-weight" min="0.1" step="0.1" placeholder="e.g. 35.5" required oninput="calcDistTotal()">
+          </div>
+          <div class="form-group">
+            <label for="dist-rate">Selling Rate (₹/kg) *</label>
+            <input type="number" id="dist-rate" min="1" step="1" placeholder="e.g. 480" required oninput="calcDistTotal()">
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="dist-coolie">Coolie / Packing Charge (₹)</label>
+            <input type="number" id="dist-coolie" min="0" step="10" value="0" placeholder="0" oninput="calcDistTotal()">
+          </div>
+          <div class="form-group">
+            <label for="dist-transport">Transport / Freight (₹)</label>
+            <input type="number" id="dist-transport" min="0" step="10" value="0" placeholder="0" oninput="calcDistTotal()">
+          </div>
+        </div>
+
+        <div class="calc-highlight-box" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-size: 0.8rem; color: #64748B;">Distribution Value:</span>
+            <div id="dist-flower-value-display" style="font-size: 0.85rem; font-weight: 600;">Flowers: ₹0</div>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 0.8rem; color: #64748B;">Total Amount:</span>
+            <div id="dist-total-display" style="font-size: 1.1rem; font-weight: 800; color: #0F172A;">₹0</div>
+          </div>
+        </div>
+
+        <div class="form-row-2" style="margin-top: 12px;">
+          <div class="form-group">
+            <label for="dist-vehicle">Vehicle / Transport Lorry No</label>
+            <input type="text" id="dist-vehicle" placeholder="e.g. TN-74-E-4512">
+          </div>
+          <div class="form-group">
+            <label for="dist-remarks">Delivery Remarks</label>
+            <input type="text" id="dist-remarks" placeholder="e.g. Morning crate delivery #4">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-save-dist">
+          Record Flower Distribution
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: GENERATE CONSOLIDATED 5-6 DAY SELLING BILL ==================== -->
+  <div id="generate-bill-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-profile-wide">
+      <button class="modal-close-btn" onclick="closeGenerateBillModal()">×</button>
+      <div class="modal-header">
+        <h3>Generate Consolidated 5–6 Day Selling Bill</h3>
+        <p>Consolidate unbilled daily distributions for a wholesale buyer into the client's mandi bill format</p>
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label for="gen-bill-buyer-select">Select Wholesale Buyer *</label>
+          <select id="gen-bill-buyer-select" onchange="onGenerateBillBuyerChange(this.value)" required>
+            <option value="">-- Choose Buyer --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Billing Cycle Preset</label>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="setBillCyclePreset(5)">5-Day Cycle</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="setBillCyclePreset(6)">6-Day Cycle (Mandi Standard)</button>
+          </div>
         </div>
       </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label for="gen-bill-start-date">Cycle Start Date *</label>
+          <input type="date" id="gen-bill-start-date" onchange="fetchUnbilledDistributionsForBill()">
+        </div>
+        <div class="form-group">
+          <label for="gen-bill-end-date">Cycle End Date *</label>
+          <input type="date" id="gen-bill-end-date" onchange="fetchUnbilledDistributionsForBill()">
+        </div>
+      </div>
+
+      <!-- Preview of Unbilled Dispatches -->
+      <div style="margin: 16px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h4 style="font-size: 0.95rem; font-weight: 700;">Unbilled Procurement Dispatches (<span id="unbilled-count">0</span> batches found)</h4>
+          <label style="font-size: 0.8rem; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="unbilled-select-all" checked onchange="toggleSelectAllUnbilled(this.checked)"> Select All
+          </label>
+        </div>
+        <div class="table-responsive" style="max-height: 220px; overflow-y: auto; border: 1px solid #E2E8F0; border-radius: 8px;">
+          <table class="table mini-table" id="unbilled-distributions-table">
+            <thead>
+              <tr>
+                <th style="width: 32px;">✓</th>
+                <th>Date</th>
+                <th>Procurement Origin</th>
+                <th>Flower</th>
+                <th>Weight</th>
+                <th>Rate</th>
+                <th>Coolie</th>
+                <th>Freight</th>
+                <th>Total (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="unbilled-distributions-tbody">
+              <tr><td colspan="9" style="text-align: center; color: #94A3B8; padding: 20px;">Select a buyer to load unbilled flower dispatches.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bill Calculation Breakdown -->
+      <div class="calc-highlight-box" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+        <div>
+          <span class="text-subtle" style="font-size: 0.75rem;">Total Flower Weight</span>
+          <div id="gen-calc-weight" style="font-weight: 700; font-size: 1rem;">0 kg</div>
+        </div>
+        <div>
+          <span class="text-subtle" style="font-size: 0.75rem;">Gross Flowers</span>
+          <div id="gen-calc-gross" style="font-weight: 700; font-size: 1rem;">₹0</div>
+        </div>
+        <div>
+          <span class="text-subtle" style="font-size: 0.75rem;">Coolie & Freight</span>
+          <div id="gen-calc-charges" style="font-weight: 700; font-size: 1rem;">₹0</div>
+        </div>
+        <div>
+          <span class="text-subtle" style="font-size: 0.75rem;">Previous Balance</span>
+          <div id="gen-calc-prev-bal" style="font-weight: 700; font-size: 1rem; color: #DC2626;">₹0</div>
+        </div>
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label for="gen-bill-discount">Special Adjustment / Discount (₹)</label>
+          <input type="number" id="gen-bill-discount" value="0" min="0" oninput="recalcBillTotals()">
+        </div>
+        <div class="form-group">
+          <label for="gen-bill-advance">Advance / Immediate Payment Received (₹)</label>
+          <input type="number" id="gen-bill-advance" value="0" min="0" oninput="recalcBillTotals()">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="gen-bill-notes">Billing Remarks</label>
+        <input type="text" id="gen-bill-notes" placeholder="e.g. 6-day consolidated settlement for weekly supply">
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid #E2E8F0;">
+        <div>
+          <div style="font-size: 0.8rem; color: #64748B;">Grand Total Payable:</div>
+          <div id="gen-calc-grand-total" style="font-size: 1.3rem; font-weight: 800; color: #0F172A;">₹0</div>
+        </div>
+        <button class="btn btn-primary btn-lg" id="btn-submit-generate-bill" onclick="handleGenerateBillSubmit()">
+          📄 Generate & Issue Consolidated Bill
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: OFFICIAL CLIENT SELLING BILL (PRINT & EXCEL) ==================== -->
+  <div id="selling-bill-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-profile-wide" style="max-width: 900px; padding: 0;">
+      <!-- Invoice Action Bar -->
+      <div class="invoice-action-bar no-print">
+        <div class="action-left">
+          <span class="badge-tag paid" id="inv-status-pill">PAID</span>
+          <strong id="inv-bill-num-top">BILL #SB-2026-001</strong>
+        </div>
+        <div class="action-right">
+          <button class="btn btn-outline btn-sm" onclick="exportCurrentBillExcel()">
+            <span>📥 Download Excel</span>
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="shareBillWhatsApp()">
+            <span>💬 WhatsApp</span>
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="printSellingBill()">
+            <span>🖨️ Print Bill (Thermal / A4)</span>
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="openRecordBillPaymentModal()">
+            <span>💰 Record Payment</span>
+          </button>
+          <button class="modal-close-btn" style="position: static;" onclick="closeSellingBillModal()">×</button>
+        </div>
+      </div>
+
+      <!-- Printable Invoice Sheet (Matching Client Wholesale Flower Mandi Format) -->
+      <div class="printable-bill-wrapper" id="printable-bill-content">
+        <div class="mandi-bill-card">
+          <!-- Mandi Header -->
+          <div class="mandi-header">
+            <div class="mandi-subheading">|| ஸ்ரீ மலர் துணை ||</div>
+            <h1 class="mandi-name">FRESH BLOOMS WHOLESALE FLOWER COMMISSION MANDI</h1>
+            <div class="mandi-name-ta">பிரெஷ் ப்ளூம்ஸ் மொத்த மலர் கமிஷன் மண்டி</div>
+            <div class="mandi-tagline">Licensed Wholesale Commission Agent, Exporter & Flower Distributor</div>
+            <div class="mandi-contact-line">
+              Stall #18–24, Wholesale Flower Complex, Mattuthavani / Koyambedu Market | Phone: 98765 43210 / 94431 89765
+            </div>
+            <div class="mandi-tax-line">
+              GSTIN: 33AAACF1234F1Z9 • State: Tamil Nadu (Code 33)
+            </div>
+          </div>
+
+          <div class="bill-title-strip">
+            <span>CONSOLIDATED SELLING BILL / மொத்த மலர் விற்பனை பில்</span>
+            <span id="inv-cycle-label">6-DAY SETTLEMENT</span>
+          </div>
+
+          <!-- Meta Info Grid -->
+          <div class="mandi-meta-grid">
+            <div class="meta-box buyer-box">
+              <div class="meta-field-label">BUYER DETAILS / வாங்குபவர் விபரம்:</div>
+              <div class="buyer-display-name" id="inv-buyer-name">Kalyani Flower Stores</div>
+              <div class="buyer-display-sub" id="inv-buyer-city">Koyambedu Wholesale Market, Chennai</div>
+              <div class="buyer-display-sub">Contact: <span id="inv-buyer-phone">98401 23456</span> | ID: <span id="inv-buyer-id">BUY-1001</span></div>
+            </div>
+            <div class="meta-box invoice-box">
+              <div class="meta-row">
+                <span class="meta-label">Bill Number:</span>
+                <strong id="inv-bill-number">SB-2026-001</strong>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Bill Date:</span>
+                <span id="inv-bill-date">28-Oct-2026</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Consolidated Period:</span>
+                <strong id="inv-period">22-Oct-2026 to 27-Oct-2026 (6 Days)</strong>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Due Date:</span>
+                <span id="inv-due-date">03-Nov-2026</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Consolidated Itemized Table -->
+          <table class="mandi-table" id="inv-items-table">
+            <thead>
+              <tr>
+                <th style="width: 35px;">S.No</th>
+                <th style="width: 85px;">Date</th>
+                <th>Procurement Origin</th>
+                <th>Flower & Variety</th>
+                <th style="text-align: right;">Weight (kg)</th>
+                <th style="text-align: right;">Rate (₹/kg)</th>
+                <th style="text-align: right;">Gross (₹)</th>
+                <th style="text-align: right;">Coolie (₹)</th>
+                <th style="text-align: right;">Freight (₹)</th>
+                <th style="text-align: right;">Total (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="inv-items-tbody">
+              <!-- Dynamically populated rows -->
+            </tbody>
+            <tfoot>
+              <tr class="table-subtotal-row">
+                <td colspan="4" style="text-align: right; font-weight: 700;">TOTALS / மொத்தம்:</td>
+                <td style="text-align: right; font-weight: 700;" id="inv-foot-kg">0 kg</td>
+                <td></td>
+                <td style="text-align: right; font-weight: 700;" id="inv-foot-gross">₹0</td>
+                <td style="text-align: right; font-weight: 700;" id="inv-foot-coolie">₹0</td>
+                <td style="text-align: right; font-weight: 700;" id="inv-foot-freight">₹0</td>
+                <td style="text-align: right; font-weight: 800;" id="inv-foot-total">₹0</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <!-- Financial Calculation Breakdown Box -->
+          <div class="mandi-summary-grid">
+            <div class="summary-notes-box">
+              <div class="terms-title">Terms & Settlement Conditions:</div>
+              <ol class="terms-list">
+                <li>Consolidated 5–6 day bills are payable within 3 banking days from date of presentation.</li>
+                <li>Flowers are procured daily and graded fresh from regional mandi collection origins (Thovalai, Nilakottai, Hosur, Sathyamangalam, Sankarankovil).</li>
+                <li>Weight registered at the mandi dispatch electronic weighbridge is final and binding.</li>
+                <li>Coolie and freight charges reflect actual lorry transport and headload labor costs.</li>
+              </ol>
+              <div class="bank-details-box">
+                <strong>BANK DETAILS FOR NEFT/RTGS/UPI:</strong><br>
+                Bank: State Bank of India | A/C: 38920192847 | IFSC: SBIN0001234<br>
+                UPI ID: freshblooms@sbi • Mobile: 98765 43210
+              </div>
+            </div>
+
+            <div class="summary-totals-box">
+              <div class="calc-row">
+                <span>Total Flower Quantity:</span>
+                <strong id="inv-calc-weight">0.0 kg</strong>
+              </div>
+              <div class="calc-row">
+                <span>Gross Flower Value:</span>
+                <span id="inv-calc-gross">₹0</span>
+              </div>
+              <div class="calc-row">
+                <span>Coolie / Handling:</span>
+                <span id="inv-calc-coolie">₹0</span>
+              </div>
+              <div class="calc-row">
+                <span>Transport / Freight:</span>
+                <span id="inv-calc-freight">₹0</span>
+              </div>
+              <div class="calc-row" id="inv-discount-row" style="display: none;">
+                <span>Discount / Adjustment:</span>
+                <span id="inv-calc-discount" class="text-green">-₹0</span>
+              </div>
+              <div class="calc-row subtotal">
+                <strong>Current Bill Total:</strong>
+                <strong id="inv-calc-subtotal">₹0</strong>
+              </div>
+              <div class="calc-row">
+                <span>Previous Balance / Arrears:</span>
+                <span id="inv-calc-prev-bal" class="text-rose">₹0</span>
+              </div>
+              <div class="calc-row grand-total">
+                <strong>Grand Total Payable:</strong>
+                <strong id="inv-calc-grand-total">₹0</strong>
+              </div>
+              <div class="calc-row">
+                <span>Amount Paid:</span>
+                <span id="inv-calc-paid" class="text-green">₹0</span>
+              </div>
+              <div class="calc-row balance-due">
+                <strong>NET BALANCE DUE / மீதி:</strong>
+                <strong id="inv-calc-bal-due">₹0</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signatures Footer -->
+          <div class="mandi-signature-row">
+            <div class="sig-col">
+              <div class="sig-line"></div>
+              <span>Buyer Signature / Seal</span>
+            </div>
+            <div class="sig-col" style="text-align: center;">
+              <div class="rubber-stamp">
+                FRESH BLOOMS MANDI<br>
+                VERIFIED & ISSUED
+              </div>
+            </div>
+            <div class="sig-col" style="text-align: right;">
+              <div class="sig-line"></div>
+              <span>For FRESH BLOOMS COMMISSION MANDI<br>(Authorized Signatory)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: RECORD BUYER PAYMENT ==================== -->
+  <div id="buyer-payment-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeBuyerPaymentModal()">×</button>
+      <div class="modal-header">
+        <h3>Record Buyer Settlement Payment</h3>
+        <p id="buyer-pay-subtitle">Credit payment against wholesale buyer balance</p>
+      </div>
+      <form id="buyer-payment-form" onsubmit="handleBuyerPaymentSubmit(event)">
+        <input type="hidden" id="buyer-pay-buyer-id">
+        <input type="hidden" id="buyer-pay-bill-id">
+
+        <div class="review-status-notice">
+          <div>
+            <span class="info-label">Buyer:</span>
+            <strong id="buyer-pay-name">—</strong>
+          </div>
+          <div style="margin-top: 4px;">
+            <span class="info-label">Current Outstanding Balance:</span>
+            <strong id="buyer-pay-balance" class="text-rose">₹0</strong>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="buyer-pay-date">Payment Date *</label>
+            <input type="date" id="buyer-pay-date" required>
+          </div>
+          <div class="form-group">
+            <label for="buyer-pay-amount">Amount (₹) *</label>
+            <input type="number" id="buyer-pay-amount" min="1" step="1" required placeholder="e.g. 25000">
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="buyer-pay-mode">Payment Mode *</label>
+            <select id="buyer-pay-mode" required>
+              <option value="Cash">Cash</option>
+              <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
+              <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
+              <option value="Cheque">Cheque</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="buyer-pay-ref">Reference / Transaction ID</label>
+            <input type="text" id="buyer-pay-ref" placeholder="e.g. UTR194820184">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="buyer-pay-notes">Notes</label>
+          <input type="text" id="buyer-pay-notes" placeholder="e.g. Payment for 6-day bill #SB-2026-001">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-save-buyer-payment">
+          Record Payment & Update Balance
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: FARMER SETTLEMENT STATEMENT (15, 20, 30 DAYS & COMMISSION) ==================== -->
+  <div id="farmer-statement-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-profile-wide">
+      <button class="modal-close-btn" onclick="closeFarmerStatementModal()">×</button>
+      <div class="modal-header">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+          <div>
+            <h3>Farmer Payout Statement</h3>
+            <p id="stmt-farmer-sub">Customizable 15, 20, 30-day settlement cycle with transparent commission deduction</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-outline btn-sm" onclick="exportCurrentFarmerStatementCsv()">
+              <span>📥 Export CSV</span>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="window.print()">
+              <span>🖨️ Print Statement</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Farmer Statement Banner -->
+      <div class="stats-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 16px;">
+        <div class="stat-card" style="padding: 12px;">
+          <span class="stat-title">Billing Cycle</span>
+          <div class="stat-number" id="stmt-cycle-days" style="font-size: 1.1rem;">15 Days</div>
+          <div class="stat-sub">Settlement Cycle</div>
+        </div>
+        <div class="stat-card" style="padding: 12px;">
+          <span class="stat-title">Mandi Commission</span>
+          <div class="stat-number" id="stmt-commission-rate" style="font-size: 1.1rem; color: #6366F1;">10%</div>
+          <div class="stat-sub">Customized Rate</div>
+        </div>
+        <div class="stat-card" style="padding: 12px;">
+          <span class="stat-title">Gross Harvest</span>
+          <div class="stat-number" id="stmt-gross-amount" style="font-size: 1.1rem;">₹0</div>
+          <div class="stat-sub" id="stmt-total-kg">0 kg</div>
+        </div>
+        <div class="stat-card" style="padding: 12px;">
+          <span class="stat-title">Commission Deducted</span>
+          <div class="stat-number text-rose" id="stmt-commission-amount" style="font-size: 1.1rem;">₹0</div>
+          <div class="stat-sub">Mandi Service Fee</div>
+        </div>
+        <div class="stat-card" style="padding: 12px;">
+          <span class="stat-title">Net Farmer Payout</span>
+          <div class="stat-number text-green" id="stmt-net-payout" style="font-size: 1.1rem;">₹0</div>
+          <div class="stat-sub" id="stmt-paid-pending">₹0 Paid</div>
+        </div>
+      </div>
+
+      <!-- Itemized Collections Table -->
+      <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+        <table class="table mini-table" id="farmer-statement-table">
+          <thead>
+            <tr>
+              <th>Batch ID</th>
+              <th>Date</th>
+              <th>Flower Variety</th>
+              <th>Weight (kg)</th>
+              <th>Rate (₹/kg)</th>
+              <th>Gross Value (₹)</th>
+              <th>Comm %</th>
+              <th>Commission (₹)</th>
+              <th>Net Payout (₹)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="farmer-statement-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: EXCEL / CSV BULK IMPORT ==================== -->
+  <div id="excel-import-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button class="modal-close-btn" onclick="closeExcelImportModal()">×</button>
+      <div class="modal-header">
+        <h3>Bulk Excel / CSV Data Import</h3>
+        <p>Import farmers, wholesale buyers, origin distributions, or harvest collections</p>
+      </div>
+
+      <div class="form-group">
+        <label for="import-entity-type">Select Data Module *</label>
+        <select id="import-entity-type" onchange="onImportTypeChange(this.value)">
+          <option value="buyers">Wholesale Buyers Directory (20–25 Buyers)</option>
+          <option value="distributions">Origin Flower Distributions (Thovalai, Nilakottai, Hosur...)</option>
+          <option value="farmers">Registered Farmers (with 15, 20, 30-Day Cycles & Comm %)</option>
+          <option value="collections">Harvest Collections</option>
+        </select>
+      </div>
+
+      <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 18px; text-align: center; margin: 16px 0;">
+        <div style="font-size: 2rem; margin-bottom: 6px;">📄</div>
+        <label for="import-file-input" class="btn btn-outline btn-sm" style="cursor: pointer;">
+          <span>Choose CSV / Excel File (.csv, .xlsx)</span>
+        </label>
+        <input type="file" id="import-file-input" accept=".csv,.json,.txt" style="display: none;" onchange="handleFileSelect(event)">
+        <div id="import-file-name" style="margin-top: 8px; font-size: 0.82rem; color: #64748B;">No file chosen yet</div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <button type="button" class="btn btn-outline btn-xs" onclick="downloadSampleTemplate()">
+          <span>📥 Download Sample CSV Template</span>
+        </button>
+        <small class="text-subtle" id="import-format-hint">Columns: name, contact, market_city...</small>
+      </div>
+
+      <div id="import-status-box" class="hidden" style="padding: 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 14px;"></div>
+
+      <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-submit-import" onclick="executeDataImport()">
+        🚀 Upload & Process Bulk Import
+      </button>
     </div>
   </div>
 

@@ -122,6 +122,12 @@ window.I18N = {
     flower_Lotus: 'Lotus',
     flower_Lily: 'Lily',
 
+    nav_selling: 'Selling & Buyers',
+    buyers_title: 'Wholesale Buyers Directory',
+    distributions_title: 'Origin Flower Distributions',
+    selling_bills_title: 'Consolidated 5–6 Day Bills',
+    billing_cycle: 'Billing Cycle',
+    commission_rate: 'Commission %',
     err_generic: 'Something went wrong. Try again.',
     err_internal: 'Server problem. Try again in a moment.',
     err_db_unavailable: 'Server problem. Try again in a moment.',
@@ -276,6 +282,13 @@ window.I18N = {
     flower_Tuberose: 'சம்பங்கி',
     flower_Lotus: 'தாமரை',
     flower_Lily: 'லில்லி',
+
+    nav_selling: 'விற்பனை & வாங்குபவர்கள்',
+    buyers_title: 'மொத்த மலர் வியாபாரிகள்',
+    distributions_title: 'கொள்முதல் இருப்பிட விநியோகம்',
+    selling_bills_title: '5–6 நாள் ஒருங்கிணைந்த பில்கள்',
+    billing_cycle: 'பில்லிங் சுழற்சி',
+    commission_rate: 'கமிஷன் %',
 
     err_generic: 'ஏதோ தவறு நடந்தது. மீண்டும் முயற்சிக்கவும்.',
     err_internal: 'சர்வரில் சிக்கல். சிறிது நேரம் கழித்து முயற்சிக்கவும்.',
